@@ -297,7 +297,7 @@ Persona is illustrative and built from the research above. Replace with a real s
 | C4 | Text description of features | Devpost description built from section 1 and 8 | Devpost form |
 | C5 | Functional demo: run instructions or hosted URL | Both | README, hosted URL |
 | C6 | Name AI tools and how they are used | Table in README | README "AI used" |
-| C7 | Public repo with all source, assets, instructions | GitHub `EHIBE/anti-body` | Repo root |
+| C7 | Public repo with all source, assets, instructions | GitHub `EHIBE/anti-body-paypal` | Repo root |
 | C8 | Open source license visible in About | MIT `LICENSE` file, set in GitHub About | Repo root |
 | C9 | Video under 3 min, public on YouTube, shows it running | Script in section 20, target 2:50 | YouTube link in Devpost |
 | C10 | No unlicensed music or third-party trademarks in video | Royalty-free or no music. Fictional vendor names only. PayPal shown only as the platform used | Section 20 |
@@ -1305,22 +1305,22 @@ See 9.5. Raw notes and terms text never leave the extractor step.
 ### 19.3 Telegram message format (illustrative)
 
 ```
-⚠️ Anti-Body: approval needed
-PrintHub · INV-2207 · $640.00
-Risk 35 · HOLD
-• 45% above usual amount
-• Above auto-approve limit ($500)
+âš ï¸ Anti-Body: approval needed
+PrintHub Â· INV-2207 Â· $640.00
+Risk 35 Â· HOLD
+â€¢ 45% above usual amount
+â€¢ Above auto-approve limit ($500)
 [ Approve ]  [ Reject ]
 Expires in 15 min
 ```
-After tap: message edits to "✅ Approved by you · paying" then "Paid" on webhook.
+After tap: message edits to "âœ… Approved by you Â· paying" then "Paid" on webhook.
 
 Block alert (no buttons):
 ```
-🛑 Anti-Body blocked a payment
-"BoxPro Supplies" · $680.00
+ðŸ›‘ Anti-Body blocked a payment
+"BoxPro Supplies" Â· $680.00
 Payee does not match BoxPro's verified email
-Lookalike domain · pressure language
+Lookalike domain Â· pressure language
 $680 protected. Review in dashboard.
 ```
 
@@ -1462,8 +1462,8 @@ $680 protected. Review in dashboard.
 
 | Render service | Plan | Runs |
 |---|---|---|
-| `anti-body-web` | Starter, Docker, region Singapore | nginx + php-fpm + `queue:work` + `schedule:work` under supervisord |
-| `anti-body-db` | Postgres basic-256mb, Singapore | Database |
+| `anti-body-paypal-web` | Starter, Docker, region Singapore | nginx + php-fpm + `queue:work` + `schedule:work` under supervisord |
+| `anti-body-paypal-db` | Postgres basic-256mb, Singapore | Database |
 
 Pre-deploy command: `php artisan migrate --force && php artisan optimize`.
 
