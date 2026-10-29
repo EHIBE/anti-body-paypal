@@ -1305,22 +1305,22 @@ See 9.5. Raw notes and terms text never leave the extractor step.
 ### 19.3 Telegram message format (illustrative)
 
 ```
-âš ï¸ Anti-Body: approval needed
-PrintHub Â· INV-2207 Â· $640.00
-Risk 35 Â· HOLD
-â€¢ 45% above usual amount
-â€¢ Above auto-approve limit ($500)
+⚠️ Anti-Body: approval needed
+PrintHub · INV-2207 · $640.00
+Risk 35 · HOLD
+• 45% above usual amount
+• Above auto-approve limit ($500)
 [ Approve ]  [ Reject ]
 Expires in 15 min
 ```
-After tap: message edits to "âœ… Approved by you Â· paying" then "Paid" on webhook.
+After tap: message edits to "✅ Approved by you · paying" then "Paid" on webhook.
 
 Block alert (no buttons):
 ```
-ðŸ›‘ Anti-Body blocked a payment
-"BoxPro Supplies" Â· $680.00
+🛑 Anti-Body blocked a payment
+"BoxPro Supplies" · $680.00
 Payee does not match BoxPro's verified email
-Lookalike domain Â· pressure language
+Lookalike domain · pressure language
 $680 protected. Review in dashboard.
 ```
 
