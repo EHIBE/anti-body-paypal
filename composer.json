@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "ehibe/anti-body-paypal",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "Anti-Body: a payment gate between AI agents and a small business PayPal account.",
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
