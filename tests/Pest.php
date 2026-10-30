@@ -7,4 +7,4 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
-    ->in('../app/Features/*/Tests/Feature');
+    ->in('AccessMatrix', '../app/Features/*/Tests/Feature');
