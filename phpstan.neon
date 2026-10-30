@@ -30,6 +30,7 @@ parameters:
             paths:
                 - tests/Architecture/HygieneTest.php
                 - tests/Architecture/SliceIsolationTest.php
+        # Reason: the arch() expectation chain in SliceIsolationTest reads the not property through the same runtime proxy.
         -
             identifier: property.nonObject
             path: tests/Architecture/SliceIsolationTest.php
