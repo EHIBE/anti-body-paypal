@@ -1,0 +1,45 @@
+#!/bin/sh
+message_file="$1"
+
+if [ -z "$message_file" ] || [ ! -f "$message_file" ]; then
+    echo "commit-msg: commit message file not found: $message_file" >&2
+    exit 1
+fi
+
+for tool in grep head; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "commit-msg: $tool is not on PATH. Run git from Git Bash or PowerShell with Git for Windows installed." >&2
+        exit 1
+    fi
+done
+
+body=$(grep -v '^#' "$message_file" || true)
+
+if printf '%s\n' "$body" | grep -Eiq 'co-authored-by:'; then
+    echo "Commit blocked: the message has a Co-Authored-By trailer." >&2
+    echo "The configured git user is the only author. Remove the trailer and commit again." >&2
+    exit 1
+fi
+
+if printf '%s\n' "$body" | grep -q 'Generated with'; then
+    echo "Commit blocked: the message has a \"Generated with\" line." >&2
+    echo "No AI attribution or generated-by lines. Remove the line and commit again." >&2
+    exit 1
+fi
+
+subject=$(printf '%s\n' "$body" | head -n 1)
+
+case "$subject" in
+    Merge\ *|Revert\ \"*|fixup!\ *|squash!\ *) exit 0 ;;
+esac
+
+pattern='^(feat|fix|refactor|perf|test|docs|chore): \[ABP-[0-9]+\] [^ ].*$'
+
+if printf '%s\n' "$subject" | grep -Eq "$pattern"; then
+    exit 0
+fi
+
+echo "Commit blocked: invalid subject: $subject" >&2
+echo "Expected: type: [ABP-123] Imperative action" >&2
+echo "Types: feat fix refactor perf test docs chore" >&2
+exit 1
