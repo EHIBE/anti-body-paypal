@@ -35,7 +35,7 @@ quote="[\"']"
 findings=""
 
 report() {
-    files=$(printf '%s\n' "$added_lines" | grep -E "$2" | cut -f1 | sort -u || true)
+    files=$(printf '%s\n' "$added_lines" | grep -E -e "$2" | cut -f1 | sort -u || true)
 
     if [ -n "$files" ]; then
         findings="$findings$(printf '%s\n' "$files" | sed "s/^/  $1 in /")
