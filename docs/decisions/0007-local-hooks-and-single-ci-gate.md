@@ -116,6 +116,23 @@ flowchart LR
 | Known issue (BUG-01) | `App\Models\User` does not implement `Filament\Models\Contracts\FilamentUser`. Outside `local`, Filament answers 403 on every panel page, so the owner could log in but not use `/admin` in production. Not fixed in ABP-9 because it changes behavior. Tracked for B2 and B7 |
 | Not used | CodeQL (no PHP support). Coverage gate and mutation testing are future options, see [../development/testing-strategy.md](../development/testing-strategy.md) |
 
+## Review follow-ups (ABP-9 security audit and code review)
+
+| Finding | Status |
+|---|---|
+| Pre-commit scan skipped added lines after a content line starting with `++ `, after a quoted non-ASCII path, or with `diff.noprefix` set | Fixed: `core.quotePath=false`, explicit `--src-prefix` and `--dst-prefix`, headers only between `diff --git` and the first `@@`, fail closed when git or awk fails |
+| Private key pattern starting with `-----` was read by grep as an option | Fixed: `grep -E -e` |
+| Global gitleaks allowlist hid every rule in `.env.example` and `tests/Fixtures/` | Fixed: the path allowlist now applies only to `antibody-secret-assignment` |
+| Secret values starting with punctuation, `your-<real value>` and `'NAME' => 'value'` passed | Fixed: any first character except quote, space, `<`, `$`, `.` and backtick; exact placeholders only; quoted array form matched |
+| Spaced `Co-authored-by :`, lowercase "generated with" and CRLF messages | Fixed in `.husky/commit-msg` |
+| Pre-push gated the working tree, not the pushed commit | Fixed: a pushed SHA must equal HEAD |
+| `composer setup` used `npm install` in CI | Fixed: `npm ci --ignore-scripts` |
+| `ci` job overrode the in-memory test database | Fixed: no `DB_*` env on the `composer ci:check` step |
+| Panel CSP matched any first segment starting with `livewire`; `SecurityHeaders` ran after earlier global middleware | Fixed: the segment must match `livewire-` plus hex; the middleware is prepended |
+| Scanner blind spots (more raw SQL methods, unresolvable class files, nested horizontal folders, unexpanded middleware groups, deny-by-default routes, workflow `uses` parsing) | Fixed in the architecture, access matrix and tooling helpers |
+| No trusted proxies, so HSTS and secure URLs are lost behind Render's TLS proxy; `SESSION_SECURE_COOKIE` unset | Deferred to B2 (Render deploy), tracked as BUG-02 |
+| CSP enforcement needs the Filament font and avatar hosts checked and a reporting endpoint | Deferred until before `ANTIBODY_CSP_REPORT_ONLY=false` (B7 or P2) |
+
 ## Owner steps on GitHub
 
 Code cannot configure these. Do them once on `EHIBE/anti-body-paypal`.

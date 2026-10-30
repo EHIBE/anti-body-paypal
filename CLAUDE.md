@@ -91,6 +91,7 @@ Cut order if behind (PRD R6): FR-32, FR-36, FR-37, FR-43, FR-17.
 | OQ-15 | Telegram token expires in 15 min, HOLD lasts 72 h | Dashboard-only approval after token expiry |
 | OQ-17 | Canonical JSON for the audit hash chain | Recursively key-sorted, unescaped slashes and unicode, excluding `id` and `hash` |
 | BUG-01 | `AppModelsUser` does not implement `FilamentModelsContractsFilamentUser`. Outside `APP_ENV=local` Filament answers 403 on every panel page after login, so production `/admin` is unusable | Fix in B2 or B7 with `canAccessPanel()` for the owner (behavior change, needs owner approval) |
+| BUG-02 | No trusted proxies are configured, so behind Render's TLS proxy `isSecure()` is false: HSTS is never sent and generated URLs may be `http`; `SESSION_SECURE_COOKIE` is unset | Configure `trustProxies` and `SESSION_SECURE_COOKIE=true` in B2 with an `X-Forwarded-Proto` test |
 | OQ-18 | `antibody:demo-reset` was assigned to Shared, but Shared may not depend on any slice (ABP-9 `SliceIsolationTest`) | Owner decides the owning slice in B9 |
 
 Open questions OQ-01 to OQ-11 remain as listed in PRD section 27.

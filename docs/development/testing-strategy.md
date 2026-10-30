@@ -36,7 +36,7 @@ last_verified: 2026-10-30
 | Shared slice feature tests | Implemented | `app/Features/Shared/Tests/Feature`: `SecurityHeadersTest`, `GuestAccessTest`, `ErrorResponseTest`, `CsrfProtectionTest`, `PanelLoginTest`, `ApplicationDebugTest`, `DatabaseDriverTest`, `ExampleTest`. Unit: `Tests/Unit/ExampleTest.php` |
 | Architecture suite | Implemented | `tests/Architecture` (section 3) |
 | Access matrix suite | Implemented, rows empty | `tests/AccessMatrix` (section 3) |
-| Tooling self-tests | Implemented (ABP-9) | `app/Features/Shared/Tests/Feature/Tooling/`: `WorkflowSecurityTest`, `DependabotConfigTest`, `GateScriptsTest`, `ToolConfigTest`, `HookFilesTest`, `CommitMsgHookTest`, `PreCommitHookTest`, `PrePushHookTest`, `RepositorySecretScanTest`, with helpers in `tests/Support/` (`Shell`, `Repo`, `Tree`, `WorkflowAudit`, `SecretScan`, `HookSandbox`). Hooks run through `sh -e` in temporary git repositories with a fake `npm`; on Windows the sandbox adds Git `usr/bin` to PATH as git does for hooks. 296 tests, about 3 minutes in parallel on Windows |
+| Tooling self-tests | Implemented (ABP-9) | `app/Features/Shared/Tests/Feature/Tooling/`: `WorkflowSecurityTest`, `DependabotConfigTest`, `GateScriptsTest`, `ToolConfigTest`, `HookFilesTest`, `CommitMsgHookTest`, `PreCommitHookTest`, `PrePushHookTest`, `RepositorySecretScanTest`, with helpers in `tests/Support/` (`Shell`, `Repo`, `Tree`, `WorkflowAudit`, `SecretScan`, `HookSandbox`). Hooks run through `sh -e` in temporary git repositories with a fake `npm`; on Windows the sandbox adds Git `usr/bin` to PATH as git does for hooks. The full suite was 527 tests (526 passed, 1 skipped outside the postgres job) on 2026-10-30; the tooling tests take about 3 minutes in parallel on Windows |
 | Other slice test suites | Planned | Added by the first slice that needs them (section 4) |
 | CI workflows | Implemented | `.github/workflows/tests.yml` (`ci`, `postgres`) and `.github/workflows/security.yml` (section 8) |
 | Larastan | Implemented | larastan/larastan v3.13.2 on phpstan/phpstan 2.3.4, level max, strict rules, `phpstan.neon` |
@@ -209,6 +209,7 @@ These settings cannot be set from code. Until they are done, CI results are advi
 | ID | Issue | Impact | Tracked for |
 |---|---|---|---|
 | BUG-01 | `App\Models\User` does not implement `Filament\Models\Contracts\FilamentUser` | Outside the `local` environment Filament answers 403 on every panel page, so the owner could log in but not use `/admin` in production. Not covered by a test because the behavior was not changed in ABP-9 | B2, B7 (BUG-01) |
+| BUG-02 | No trusted proxies are configured | Behind the Render TLS proxy `isSecure()` is false, so `SecurityHeaders` never sends HSTS and generated URLs may be `http`; `SESSION_SECURE_COOKIE` is unset. Needs an `X-Forwarded-Proto` test when fixed | B2 (BUG-02) |
 
 ## 12. Rules
 

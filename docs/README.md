@@ -142,6 +142,7 @@ IDs come from the PRD and are reused unchanged in every doc. See [glossary.md](g
 | `US-01` to `US-11` | User stories | PRD 7 |
 | `OQ-01` to `OQ-18` | Open questions (OQ-12 to OQ-15 and OQ-17 added by ABP-8; OQ-16 resolved and retired during ABP-8; OQ-18 added by ABP-9: owner of `antibody:demo-reset`, see [architecture/slice-catalog.md](architecture/slice-catalog.md#2-summary)) | PRD 27, [product/roadmap.md](product/roadmap.md#open-questions) |
 | `BUG-01` | Known code bug: `App\Models\User` lacks `FilamentUser`, panel answers 403 outside `local` (added by ABP-9) | [development/testing-strategy.md](development/testing-strategy.md#11-known-issues), [security/owasp-mapping.md](security/owasp-mapping.md) |
+| `BUG-02` | Known gap: no trusted proxies, so HSTS and secure URLs are lost behind the Render TLS proxy (added by ABP-9, fix in B2) | [decisions/0007-local-hooks-and-single-ci-gate.md](decisions/0007-local-hooks-and-single-ci-gate.md), [operations/configuration.md](operations/configuration.md) |
 | `C1` to `C16` | Hackathon compliance items | PRD 5 |
 | `M1` to `M7` | Demo success criteria | PRD 4.4 |
 | `G1` to `G3`, `P1` to `P3` (goals) | Hackathon and product goals | PRD 4.1, 4.2 |

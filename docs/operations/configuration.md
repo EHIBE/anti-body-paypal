@@ -52,8 +52,8 @@ Read in `config/antibody.php` (the only `env()` call site) and present in `.env.
 
 | Variable | Purpose | `.env.example` value | Production value | Secret | Config key | Read by |
 |---|---|---|---|---|---|---|
-| `ANTIBODY_CSP_REPORT_ONLY` | `true` sends `Content-Security-Policy-Report-Only`; `false` enforces `Content-Security-Policy` | `true` | Recommendation, not a deployed value: `true` (report-only) until the policies are observed clean in production, then `false`; owner decision | No | `antibody.security.csp_report_only` | `app/Features/Shared/Http/Middleware/SecurityHeaders.php` |
-| `ANTIBODY_HSTS_MAX_AGE` | `max-age` seconds of `Strict-Transport-Security`, sent only on secure requests (`includeSubDomains` added by the middleware) | `15552000` | `15552000` | No | `antibody.security.hsts_max_age` | same |
+| `ANTIBODY_CSP_REPORT_ONLY` | `true` sends `Content-Security-Policy-Report-Only`; `false`, `0`, `no` or `off` enforce `Content-Security-Policy` (parsed with `FILTER_VALIDATE_BOOL`; an unparseable value keeps report-only) | `true` | Recommendation, not a deployed value: `true` (report-only) until the policies are observed clean in production, then `false`; owner decision | No | `antibody.security.csp_report_only` | `app/Features/Shared/Http/Middleware/SecurityHeaders.php` |
+| `ANTIBODY_HSTS_MAX_AGE` | `max-age` seconds of `Strict-Transport-Security`, sent only on secure requests (`includeSubDomains` added by the middleware). `0` is sent as `max-age=0` to clear HSTS; a negative or non-integer value falls back to `15552000`. Behind Render's TLS proxy, HSTS needs trusted proxies (planned, B2) | `15552000` | `15552000` | No | `antibody.security.hsts_max_age` | same |
 
 The header values and the three CSP policies (machine, panel, page) live only in `SecurityHeaders.php`; do not copy them into docs.
 

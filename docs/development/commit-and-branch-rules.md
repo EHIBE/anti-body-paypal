@@ -96,7 +96,7 @@ Husky registers the hooks in `.husky/` through `npm run prepare` (called by `com
 |---|---|---|
 | `.husky/commit-msg` | Subject matches the commit format with the seven allowed types and `[ABP-#]`; `Merge `, `Revert "`, `fixup! ` and `squash! ` subjects are exempt from the format only; any `Co-Authored-By:` trailer (case-insensitive) or "Generated with" line is rejected, also on exempt subjects | Sections 1, 2 |
 | `.husky/pre-commit` | Blocks files with both staged and unstaged changes; blocks `.env` and `.env.*` except `.env.example`; scans added staged lines for private keys, Anthropic keys, Telegram bot tokens, PayPal access tokens and non-placeholder values of the known secret variables, printing the file and pattern name but never the value; then runs Rector and Pint on the project and re-stages only already staged paths | Section 5 |
-| `.husky/pre-push` | Refuses a detached HEAD, a current or pushed branch not matching `task/ABP-#-slug`, any push to `main`, any non-branch ref (tags) and remote branch deletion; then runs `npm run ci:check` | Section 3 |
+| `.husky/pre-push` | Refuses a detached HEAD, a current or pushed branch not matching `task/ABP-#-slug`, any push to `main`, any non-branch ref (tags), remote branch deletion, and any pushed commit that is not the checked-out HEAD (so the gate tests what ships); then runs `npm run ci:check` | Section 3 |
 
 | Rule | Detail |
 |---|---|
