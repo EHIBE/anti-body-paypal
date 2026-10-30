@@ -43,12 +43,12 @@ report() {
     fi
 }
 
-report 'private key' 'BEGIN[ A-Z]*PRIVATE KEY'
+report 'private key' '-----BEGIN[ A-Z]*PRIVATE KEY-----'
 report 'Anthropic API key' 'sk-ant-[A-Za-z0-9_-]{20,}'
 report 'Telegram bot token' '(^|[^0-9])[0-9]{8,10}:[A-Za-z0-9_-]{35}([^A-Za-z0-9_-]|$)'
 report 'PayPal access token' 'A21AA[A-Za-z0-9_-]{20,}'
 
-assignments=$(printf '%s\n' "$added_lines" | grep -E "($secret_names)[[:space:]]*[=:][[:space:]]*$quote?[^\"'[:space:]<\$]" | grep -vE "($secret_names)[[:space:]]*[=:][[:space:]]*$quote?(your-|change-me|generate-)" | cut -f1 | sort -u || true)
+assignments=$(printf '%s\n' "$added_lines" | grep -E "($secret_names)[[:space:]]*[=:][[:space:]]*$quote?[A-Za-z0-9+/]" | grep -vE "($secret_names)[[:space:]]*[=:][[:space:]]*$quote?(your-|change-me|generate-)" | cut -f1 | sort -u || true)
 
 if [ -n "$assignments" ]; then
     findings="$findings$(printf '%s\n' "$assignments" | sed 's/^/  secret value assignment in /')
