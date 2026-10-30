@@ -59,7 +59,7 @@ final readonly class SecurityHeaders
 
     private const array PANEL_SEGMENTS = ['admin', 'filament'];
 
-    private const string LIVEWIRE_SEGMENT_PREFIX = 'livewire';
+    private const string LIVEWIRE_SEGMENT_PATTERN = '/^livewire-[0-9a-f]+$/';
 
     public function __construct(private Repository $config) {}
 
@@ -94,7 +94,7 @@ final readonly class SecurityHeaders
 
     private function policyHeaderName(): string
     {
-        return $this->config->get('antibody.security.csp_report_only') === false
+        return filter_var($this->config->get('antibody.security.csp_report_only') ?? true, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) === false
             ? self::ENFORCED_POLICY_HEADER
             : self::REPORT_ONLY_POLICY_HEADER;
     }
@@ -123,13 +123,13 @@ final readonly class SecurityHeaders
             return false;
         }
 
-        return in_array($segment, self::PANEL_SEGMENTS, true) || str_starts_with($segment, self::LIVEWIRE_SEGMENT_PREFIX);
+        return in_array($segment, self::PANEL_SEGMENTS, true) || preg_match(self::LIVEWIRE_SEGMENT_PATTERN, $segment) === 1;
     }
 
     private function hstsMaxAge(): int
     {
         $maxAge = $this->config->get('antibody.security.hsts_max_age');
 
-        return is_int($maxAge) && $maxAge > 0 ? $maxAge : self::DEFAULT_HSTS_MAX_AGE;
+        return is_int($maxAge) && $maxAge >= 0 ? $maxAge : self::DEFAULT_HSTS_MAX_AGE;
     }
 }

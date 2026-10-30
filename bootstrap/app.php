@@ -15,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(SecurityHeaders::class);
+        $middleware->prepend(SecurityHeaders::class);
 
         $middleware->redirectGuestsTo(
             fn (Request $request): ?string => $request->is('api', 'api/*') ? null : route('filament.admin.auth.login'),
