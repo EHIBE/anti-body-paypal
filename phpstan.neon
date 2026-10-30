@@ -16,3 +16,20 @@ parameters:
     level: max
 
     tmpDir: storage/framework/cache/phpstan
+
+    excludePaths:
+        # Reason: these fixtures plant architecture violations on purpose so the scanner self-tests can prove each rule reports them.
+        - tests/Fixtures/Architecture
+
+    ignoreErrors:
+        # Reason: pest-plugin-arch registers the arch() expectations at runtime, so the analyser cannot see the chain.
+        -
+            identifiers:
+                - method.notFound
+                - method.nonObject
+            paths:
+                - tests/Architecture/HygieneTest.php
+                - tests/Architecture/SliceIsolationTest.php
+        -
+            identifier: property.nonObject
+            path: tests/Architecture/SliceIsolationTest.php

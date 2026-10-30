@@ -17,6 +17,7 @@ return RectorConfig::configure()
         __DIR__.'/bootstrap/cache',
         __DIR__.'/database/migrations',
         __DIR__.'/storage',
+        __DIR__.'/tests/Fixtures/Architecture',
     ])
     ->withCache(cacheDirectory: __DIR__.'/storage/framework/cache/rector')
     ->withPhpSets()

@@ -8,6 +8,9 @@
         <testsuite name="Shared">
             <directory>app/Features/Shared/Tests</directory>
         </testsuite>
+        <testsuite name="Architecture">
+            <directory>tests/Architecture</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>
