@@ -1,6 +1,6 @@
 # Anti-Body (anti-body-paypal)
 
-Project sections below are maintained by hand. Keep them outside the `<laravel-boost-guidelines>` block, which Boost regenerates.
+Project sections below are maintained by hand. Keep them above the Laravel Boost guidelines block, which Boost regenerates.
 
 ## Project summary
 
