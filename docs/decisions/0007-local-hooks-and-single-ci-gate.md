@@ -76,7 +76,7 @@ flowchart LR
 |---|---|---|
 | `tests.yml` main job | Applied | Job `ci`: PHP 8.5, Node 22, Composer and npm caches keyed on lockfiles, `composer setup`, `composer ci:check` on SQLite |
 | MySQL service job | Adapted | Job `postgres` uses Postgres 17 pinned by digest, because Render Postgres is production ([0004-render-postgres.md](0004-render-postgres.md)). `DatabaseDriverTest` fails if the driver differs from `ANTIBODY_EXPECTED_DB_DRIVER` and is skipped when the variable is unset |
-| Dependabot | Applied | `.github/dependabot.yml`: github-actions, composer, npm; weekly; 5-day cooldown; one group per ecosystem |
+| Dependabot | Applied | `.github/dependabot.yml`: github-actions, composer, npm; weekly; 7-day cooldown (zizmor `dependabot-cooldown` minimum); one group per ecosystem |
 | Pull request template | Adapted | `.github/pull_request_template.md` with the `type: [ABP-#] Imperative action` title hint and a security and money checklist |
 | `commit-msg` hook | Adapted | Prefix is `[ABP-#]`, seven types, `Merge `, `Revert "`, `fixup! `, `squash! ` exempt. Co-author trailers and "Generated with" lines are rejected, also on exempt subjects |
 | `pre-commit` hook | Adapted | ide-helper and `vp check` dropped (see below). Added: partly staged file guard, `.env` guard, secret scan of added lines. Runs Rector + Pint on the whole project, then re-stages only already staged paths |
@@ -140,7 +140,7 @@ Code cannot configure these. Do them once on `EHIBE/anti-body-paypal`.
 | # | Step |
 |---|---|
 | 1 | Protect `main` with a ruleset or branch protection: require pull requests; require status checks `ci`, `postgres`, `gitleaks`, `dependency-review`, `zizmor` (optionally `actionlint`); block force pushes; block deletion |
-| 2 | Keep the dependency graph on. `dependency-review` needs it (on by default for public repositories) |
+| 2 | Enable the dependency graph in Settings, Advanced Security (`dependency-review` fails with "Dependency review is not supported on this repository" until it is on; it was off on this repository) |
 | 3 | gitleaks-action needs no license for a personal account. No secret has to be created for any workflow |
 
 ## Alternatives considered

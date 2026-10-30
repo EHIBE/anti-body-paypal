@@ -194,7 +194,7 @@ These settings cannot be set from code. Until they are done, CI results are advi
 | # | Step |
 |---|---|
 | 1 | Protect `main` (ruleset or branch protection): require pull requests; require status checks `ci`, `postgres`, `gitleaks`, `dependency-review`, `zizmor` (optionally `actionlint`); block force pushes and deletions |
-| 2 | Keep the dependency graph on (needed by `dependency-review`; on by default for public repositories) |
+| 2 | Enable the dependency graph in Settings, Advanced Security (`dependency-review` fails with "Dependency review is not supported on this repository" until it is on; it was off on this repository) |
 | 3 | gitleaks-action needs no license for a personal account |
 
 ## 10. Future options (not used now)

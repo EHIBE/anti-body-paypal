@@ -55,8 +55,8 @@ it('checks the ecosystem weekly', function (string $ecosystem): void {
     expect(Tree::at(toolingDependabotUpdates()[$ecosystem], 'schedule.interval'))->toBe('weekly');
 })->with(toolingDependabotEcosystems());
 
-it('waits five days before proposing a new release of the ecosystem', function (string $ecosystem): void {
-    expect(Tree::at(toolingDependabotUpdates()[$ecosystem], 'cooldown.default-days'))->toBe(5);
+it('waits seven days before proposing a new release of the ecosystem', function (string $ecosystem): void {
+    expect(Tree::at(toolingDependabotUpdates()[$ecosystem], 'cooldown.default-days'))->toBe(7);
 })->with(toolingDependabotEcosystems());
 
 it('groups all updates of the ecosystem into one group with the wildcard pattern', function (string $ecosystem): void {
