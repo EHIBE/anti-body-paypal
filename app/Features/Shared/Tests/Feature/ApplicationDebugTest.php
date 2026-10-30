@@ -2,58 +2,33 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Env;
+use Illuminate\Support\Facades\Process;
 
 use function Pest\Laravel\get;
 
-/**
- * @param  callable(): void  $assertion
- */
-function withAppDebugEnvironment(?string $value, callable $assertion): void
+function resolveAppDebugInFreshProcess(string|false $value): string
 {
-    $repository = Env::getRepository();
-    $original = $repository->get('APP_DEBUG');
+    $script = 'require "vendor/autoload.php"; $config = require "config/app.php"; echo var_export($config["debug"], true);';
 
-    try {
-        if ($value === null) {
-            $repository->clear('APP_DEBUG');
-        } else {
-            $repository->set('APP_DEBUG', $value);
-        }
+    $result = Process::path(base_path())
+        ->env(['APP_DEBUG' => $value])
+        ->run([PHP_BINARY, '-r', $script]);
 
-        $assertion();
-    } finally {
-        if (is_string($original)) {
-            $repository->set('APP_DEBUG', $original);
-        } else {
-            $repository->clear('APP_DEBUG');
-        }
-    }
-}
+    expect($result->successful())->toBeTrue($result->errorOutput());
 
-function resolveAppDebugConfig(): mixed
-{
-    $config = require base_path('config/app.php');
-
-    return is_array($config) ? ($config['debug'] ?? null) : null;
+    return trim($result->output());
 }
 
 it('resolves debug to false when APP_DEBUG is not set', function (): void {
-    withAppDebugEnvironment(null, function (): void {
-        expect(resolveAppDebugConfig())->toBeFalse();
-    });
+    expect(resolveAppDebugInFreshProcess(false))->toBe('false');
 });
 
 it('resolves debug to false when APP_DEBUG is the string false', function (): void {
-    withAppDebugEnvironment('false', function (): void {
-        expect(resolveAppDebugConfig())->toBeFalse();
-    });
+    expect(resolveAppDebugInFreshProcess('false'))->toBe('false');
 });
 
 it('resolves debug to true when APP_DEBUG is the string true', function (): void {
-    withAppDebugEnvironment('true', function (): void {
-        expect(resolveAppDebugConfig())->toBeTrue();
-    });
+    expect(resolveAppDebugInFreshProcess('true'))->toBe('true');
 });
 
 it('does not show a debug page for an unknown route when debug is off', function (): void {
