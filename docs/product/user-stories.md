@@ -159,7 +159,7 @@ last_verified: 2026-10-30
 |---|---|---|---|---|---|---|
 | FR-40 | Seeder: 6 vendors, 6 months of history, policy, owner, agent token | M | PR | all | database/seeders | planned |
 | FR-41 | 6 demo PDFs in `storage/demo/` (2 legit, 1 price jump, 1 BoxPro fake, 1 duplicate, 1 legit for second agent) | M | PR | all | database/seeders | planned |
-| FR-42 | `php artisan antibody:demo-reset` restores the demo state | M | PR | all | Shared slice command `app/Features/Shared/Commands/` (see [../operations/demo-reset.md](../operations/demo-reset.md)) | planned |
+| FR-42 | `php artisan antibody:demo-reset` restores the demo state | M | PR | all | Owning slice is an open decision, OQ-18 (see [../operations/demo-reset.md](../operations/demo-reset.md)) | planned |
 | FR-43 | `php artisan antibody:seed-sandbox-history` sends 5 to 10 real sandbox payouts so Transaction Search has live rows | S | TI | n/a | Baseline | planned |
 
 ### 2.16 Owner dashboard (PRD 8.16)

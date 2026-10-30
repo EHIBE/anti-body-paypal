@@ -1,6 +1,6 @@
 # Anti-Body (anti-body-paypal)
 
-Project sections below are maintained by hand. Keep them outside the `<laravel-boost-guidelines>` block, which Boost regenerates.
+Project sections below are maintained by hand. Keep them above the Laravel Boost guidelines block, which Boost regenerates.
 
 ## Project summary
 
@@ -10,10 +10,10 @@ Project sections below are maintained by hand. Keep them outside the `<laravel-b
 | Hackathon | PayPal AI Hackathon (Devpost). Deadline Thu Nov 12, 2026, 12:00 pm PT = Fri Nov 13, 2026, 4:00 am PHT. Target submit Tue Nov 10, 2026 (PHT) |
 | Identifiers | Repo and package `anti-body-paypal`, composer `ehibe/anti-body-paypal`, GitHub `EHIBE/anti-body-paypal`, Render `anti-body-paypal-web` and `anti-body-paypal-db`. Brand "Anti-Body". Kept as-is: MCP path `/mcp/anti-body`, local MCP server `anti-body`, `antibody:*` commands, `ANTIBODY_*` env vars, `AB-{invoice_id}` batch IDs |
 | Source of truth | Product: `docs/prd-anti-body-paypal.md`. Code wins over docs for what exists. Docs index: `docs/README.md` |
-| Stack (installed) | PHP 8.5.11, laravel/framework 13.39.0, filament/filament 5.11.0 (Livewire 4), pestphp/pest 5.3.4 + pest-plugin-laravel 5.0.1, laravel/pint 1.32.1, laravel/boost 2.10.4, laravel/mcp 1.1.2 (transitive via Boost), Tailwind CSS 4, Vite 8 |
-| Planned, not installed (approval required) | laravel/ai, laravel/sanctum, larastan/larastan, laravel-notification-channels/telegram, laravel/mcp as a direct dependency |
+| Stack (installed) | PHP 8.5.11 (composer constraint `^8.4`), laravel/framework 13.39.0, filament/filament 5.11.0 (Livewire 4), pestphp/pest 5.3.4 + pest-plugin-laravel 5.0.1 (paratest 7.27.5 for `--parallel`), laravel/pint 1.32.1, larastan/larastan 3.13.2 on phpstan/phpstan 2.3.4, phpstan/phpstan-strict-rules 2.1.0, rector/rector 2.8.3, husky 9.1.7 (npm), laravel/boost 2.10.4, laravel/mcp 1.1.2 (transitive via Boost), Tailwind CSS 4, Vite 8 |
+| Planned, not installed (approval required) | laravel/ai, laravel/sanctum, laravel-notification-channels/telegram, laravel/mcp as a direct dependency, barryvdh/laravel-ide-helper (skipped by owner decision) |
 | Data | SQLite locally (`database/database.sqlite`), SQLite `:memory:` in tests, Render Postgres in production. Queue, cache and session on database drivers |
-| Commands | Test `php artisan test --compact` (single: `--filter=Name` or a file path). Format `vendor/bin/pint --dirty --format agent`. Analyze `vendor/bin/phpstan analyse` (Larastan level 10, NOT INSTALLED, report as skipped). Audit `composer audit` and `npm audit`. Dev `composer run dev` |
+| Commands | Run PHP and Composer from PowerShell (not on the Git Bash PATH). Full gate `composer ci:check` (same command as pre-push and CI). Test `php artisan test --compact` (single: `--filter=Name` or a file path; one suite: `--testsuite=Shared`). Analyze `composer types:check` (Larastan level max, strict rules, no baseline). Lint `composer lint:check` (CI form) or `vendor/bin/pint --dirty --format agent` (local agent form). Refactor check `composer refactor:check`, fix `composer fix`. Audit `composer audit:check`. Hooks `npm run prepare` (sets local `core.hooksPath`). Dev `composer run dev` |
 
 ## Docs map
 
@@ -31,23 +31,25 @@ Project sections below are maintained by hand. Keep them outside the `<laravel-b
 | Architecture decision records | `docs/decisions/` |
 | Terms and ID schemes | `docs/glossary.md` |
 | Path-scoped coding rules | `.ai/rules/index.md` (read every rule whose globs match the paths in scope before editing) |
+| Quality gates, hooks, CI | `docs/decisions/0007-local-hooks-and-single-ci-gate.md`, `.claude/skills/quality-gates-and-hooks/SKILL.md`, `.ai/rules/quality-gates.md` |
 
 ## Architecture rules (binding)
 
 | Area | Rule |
 |---|---|
-| Slices | Every domain lives in `app/Features/<Slice>/` with only the sub-folders it needs. Planned slices: Shared, Vendor, Invoice, Extraction, Guard, Approval, Payment, Webhook, Telegram, AgentGateway, Audit, Policy, Baseline. No new slice without approval. PRD paths `app/Domain/*`, `app/Ai/*`, `app/Mcp/*` map into these slices |
+| Slices | Every domain lives in `app/Features/<Slice>/` with only the sub-folders it needs. Cross-slice use only along the edges in `tests/Architecture/SliceMap.php` and only through public namespaces (Actions, Data, Enums, Events, Exceptions, Contracts); Shared depends on no slice (enforced by `SliceIsolationTest`). Planned slices: Shared, Vendor, Invoice, Extraction, Guard, Approval, Payment, Webhook, Telegram, AgentGateway, Audit, Policy, Baseline. No new slice without approval. PRD paths `app/Domain/*`, `app/Ai/*`, `app/Mcp/*` map into these slices |
 | Layers | Entry points (thin controllers, MCP tools, commands, Filament resources) parse, authorize, delegate to one Action, respond. Business logic only in `Actions/` (`VerbNounAction::handle()`). Validation in Form Requests, MCP schemas, Filament rules, then readonly `Data/` objects |
 | Filament | Resources in `app/Filament/Resources/<Plural>/` with `Pages/`, `Schemas/`, `Tables/`. Field, column, filter and infolist definitions in model traits (`getForm()`, `getTableSchema()`, `getFilters()`, `getInfolist()`) with typed boolean context flags. `->authorize()` on every action |
-| Wiring (planned) | `AppServiceProvider` auto-registers slice `Providers/*ServiceProvider.php`. `bootstrap/app.php` `then:` loads slice `Routes/web.php` (web middleware) and `Routes/api.php` (api middleware, no prefix). Slice `Tests/` registered in `phpunit.xml` and bound in `tests/Pest.php`. Wire each in the first slice that needs it |
+| Wiring | Planned: `AppServiceProvider` auto-registers slice `Providers/*ServiceProvider.php`; `bootstrap/app.php` `then:` loads slice `Routes/web.php` (web middleware) and `Routes/api.php` (api middleware, no prefix). Implemented: every slice keeps unit and feature tests in `app/Features/<Slice>/Tests/{Unit,Feature}` with its own `<testsuite name="<Slice>">` and `<source>` exclude in `phpunit.xml`; `tests/Pest.php` binds `TestCase` + `RefreshDatabase` to `AccessMatrix` and `../app/Features/*/Tests/Feature`. Root `tests/` holds only `Architecture`, `AccessMatrix`, `Fixtures`, `Support` |
 | Guard | H1 to H10, S1 to S7 and thresholds live only in the Guard slice. Score is monotonic, summed in PHP. AI never scores or decides. Hard-rule BLOCK never overridable. Auto ceiling $500 absolute |
 | Money and payouts | Integer minor units (`*_minor`), UTC times. Amount and payee only from the DB. One batch per invoice, `sender_batch_id` = `PayPal-Request-Id` = `AB-{invoice_id}`. Never `submitting` back to `queued`. Row locks on transitions |
 | Agents | Agents only propose. No tool approves, rejects, overrides, edits vendors, or accepts amount or payee. Agent `note` is data, never parsed or sent to a model |
-| Code style | `declare(strict_types=1)`, camelCase variables, `#[\Override]`, `#[Fillable]`/`#[Hidden]` (never `Model::unguard()`), UUIDv7 via `HasUuids` (except framework tables, `agents`, `audit_logs`), string-backed TitleCase enums with `HasLabel`/`HasColor`, zero code comments except PHPDoc types and array shapes, `config()` never `env()` outside `config/` |
+| Code style | `declare(strict_types=1)` (Pint `declare_strict_types`, except the 3 applied starter migrations), `final` Actions with one public `handle()`, `final readonly` Data, `final` concrete slice classes (enforced by `StructureTest`), camelCase variables, `#[\Override]`, `#[Fillable]`/`#[Hidden]` (never `Model::unguard()`), UUIDv7 via `HasUuids` (except framework tables, `agents`, `audit_logs`), string-backed TitleCase enums with `HasLabel`/`HasColor`, zero code comments except PHPDoc types and array shapes, `config()` never `env()` outside `config/` |
 
 ## Current state (2026-10-30)
 
-- Code: Laravel 13 skeleton plus Filament 5 panel `admin` at `/admin` (`app/Providers/Filament/AdminPanelProvider.php`). No `app/Features`, no domain migrations, no Dockerfile, `render.yaml`, CI workflow or Makefile.
+- Code: Laravel 13 skeleton plus Filament 5 panel `admin` at `/admin` (`app/Providers/Filament/AdminPanelProvider.php`). `app/Features/Shared` holds `Http/Middleware/SecurityHeaders.php` (global), `Authorization/RequiresAbility.php` and the Shared tests. No domain slices or migrations, no Dockerfile, `render.yaml` or Makefile.
+- Quality gates (ABP-9): Husky hooks in `.husky/` (commit-msg, pre-commit, pre-push), `composer ci:check`, `phpstan.neon` (max), `rector.php`, `pint.json`, `.gitleaks.toml`, `.github/workflows/tests.yml` (`ci`, `postgres`) and `security.yml` (`gitleaks`, `dependency-review`, `zizmor`, `actionlint`), Dependabot, PR template. Suites: `Shared`, `Architecture`, `AccessMatrix`. Branch protection on `main` is an owner step (ADR 0007).
 - Docs: full documentation set in `docs/` (ABP-8). Every unbuilt item is marked planned.
 - Agent tooling: 10 project agents in `.claude/agents/`, 11 project skills in `.claude/skills/`, 15 path-scoped rules in `.ai/rules/` (ABP-8).
 - Schedule: PRD Day 7 of 14. Build blocks B1 to B9 not started in code. B1 PayPal spike results are not recorded in the repo.
@@ -57,7 +59,7 @@ Project sections below are maintained by hand. Keep them outside the `<laravel-b
 | # | Block | Scope | Hours | Status |
 |---|---|---|---|---|
 | 1 | B1 | PayPal spike (PRD 16.5): OAuth, $5 payout, duplicate `sender_batch_id`, webhook through tunnel, signature verify, show item, Transaction Search permission | 4 | pending (results not recorded) |
-| 2 | B2 | Skeleton wiring, Docker, Render deploy, CI | 2 | partial (Filament installed) |
+| 2 | B2 | Skeleton wiring, Docker, Render deploy, CI | 2 | partial (Filament installed, CI and gates done in ABP-9; Docker, Render, slice provider and route wiring pending) |
 | 3 | B3 | Data model, state machine, idempotency, payout executor, webhook handler | 6 | pending |
 | 4 | B4 | Extractor | 5 | pending |
 | 5 | B5 | Hard rules, scorer, analyst, decision engine | 8 | pending |
@@ -74,7 +76,7 @@ Cut order if behind (PRD R6): FR-32, FR-36, FR-37, FR-43, FR-17.
 ## Constraints
 
 - No dependency changes, destructive commands or new slices without approval. Local environment only. Sandbox PayPal only.
-- Commits: `type: [ABP-#] Imperative action` (types feat, fix, refactor, perf, test, docs, chore). Branches `task/ABP-#-kebab-slug`. Author is the configured git user only. No `Co-Authored-By`, no AI attribution. Agents never push, merge, rebase, stash, reset, checkout, create branches or amend.
+- Commits: `type: [ABP-#] Imperative action` (types feat, fix, refactor, perf, test, docs, chore), enforced by `.husky/commit-msg`. Branches `task/ABP-#-kebab-slug`, enforced by `.husky/pre-push` (no push to `main`). Never bypass hooks (`--no-verify`, `HUSKY=0`); fix the cause. Commit from PowerShell. Author is the configured git user only. No `Co-Authored-By`, no AI attribution. Agents never push, merge, rebase, stash, reset, checkout, create branches or amend.
 - Zero code comments (PHPDoc types excepted). No debug code, commented-out blocks, or test data outside seeders and factories. No regressions.
 - Public repo: no secrets, real names, real emails or real invoices. Fictional vendors and sandbox emails only.
 - Mark docs for unbuilt code as planned. Never claim something exists that does not.
@@ -88,7 +90,9 @@ Cut order if behind (PRD R6): FR-32, FR-36, FR-37, FR-43, FR-17.
 | OQ-14 | H5 ISO week timezone (owner is in PHT) | UTC |
 | OQ-15 | Telegram token expires in 15 min, HOLD lasts 72 h | Dashboard-only approval after token expiry |
 | OQ-17 | Canonical JSON for the audit hash chain | Recursively key-sorted, unescaped slashes and unicode, excluding `id` and `hash` |
-| BUG-none | No known code bugs (no feature code yet) | n/a |
+| BUG-01 | `AppModelsUser` does not implement `FilamentModelsContractsFilamentUser`. Outside `APP_ENV=local` Filament answers 403 on every panel page after login, so production `/admin` is unusable | Fix in B2 or B7 with `canAccessPanel()` for the owner (behavior change, needs owner approval) |
+| BUG-02 | No trusted proxies are configured, so behind Render's TLS proxy `isSecure()` is false: HSTS is never sent and generated URLs may be `http`; `SESSION_SECURE_COOKIE` is unset | Configure `trustProxies` and `SESSION_SECURE_COOKIE=true` in B2 with an `X-Forwarded-Proto` test |
+| OQ-18 | `antibody:demo-reset` was assigned to Shared, but Shared may not depend on any slice (ABP-9 `SliceIsolationTest`) | Owner decides the owning slice in B9 |
 
 Open questions OQ-01 to OQ-11 remain as listed in PRD section 27.
 

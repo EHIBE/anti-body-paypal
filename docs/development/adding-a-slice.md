@@ -2,14 +2,15 @@
 title: Adding a Slice
 purpose: Step-by-step checklist for creating or extending a vertical slice under app/Features without breaking the architecture rules.
 audience: [developers, ai-agents]
-status: planned
+status: mixed
 related:
   - ../architecture/vertical-slice-architecture.md
   - ../architecture/slice-catalog.md
   - adding-a-filament-resource.md
   - testing-strategy.md
   - coding-conventions.md
-source_of_truth: docs/architecture/vertical-slice-architecture.md, feature prompt section 4.1
+  - ../decisions/0007-local-hooks-and-single-ci-gate.md
+source_of_truth: docs/architecture/vertical-slice-architecture.md, feature prompt section 4.1, phpunit.xml, tests/Pest.php, tests/Architecture/SliceMap.php
 last_verified: 2026-10-30
 ---
 
@@ -18,8 +19,8 @@ last_verified: 2026-10-30
 > **TL;DR**
 > - Only the 13 planned slices may exist: Shared, Vendor, Invoice, Extraction, Guard, Approval, Payment, Webhook, Telegram, AgentGateway, Audit, Policy, Baseline. A new slice needs owner approval.
 > - Create only the sub-folders the slice needs. Use `php artisan make:* --no-interaction`, then move the class into the slice and fix its namespace.
-> - The first slice wires provider auto-discovery (`AppServiceProvider`), route auto-discovery (`bootstrap/app.php` `then:`), the factory resolver, and slice test suites.
-> - Status: planned. No slice exists yet (`app/Features/` is absent on 2026-10-30).
+> - The first slice wires provider auto-discovery (`AppServiceProvider`), route auto-discovery (`bootstrap/app.php` `then:`), and the factory resolver. Test wiring is already in place (section 5): each slice adds one testsuite entry to `phpunit.xml`.
+> - Status: mixed. Only `app/Features/Shared/` exists (security headers middleware, `RequiresAbility` attribute, tests); its test suite is registered. Every other slice and the provider and route wiring are planned.
 
 ## 1. Pre-flight
 
@@ -77,9 +78,9 @@ app/Features/<Slice>/
 | 12 | Service provider | `php artisan make:provider VendorServiceProvider --no-interaction`, move to `Providers/`. Register Actions as singletons in `register()`, policies, rate limiters and commands in `boot()`. Do not add it to `bootstrap/providers.php`: `AppServiceProvider` discovers it |
 | 13 | Routes | `Routes/web.php` (web middleware) or `Routes/api.php` (api middleware, no `api/v1` prefix). Named routes, `throttle:` limiters |
 | 14 | Filament UI | Follow [adding-a-filament-resource.md](adding-a-filament-resource.md) |
-| 15 | Tests | `php artisan make:test --pest VendorRegistryTest --no-interaction`, move to `app/Features/Vendor/Tests/`; register the suite (section 5) |
+| 15 | Tests | `php artisan make:test --pest VendorRegistryTest --no-interaction`, move to `app/Features/Vendor/Tests/Feature/` (database or HTTP) or `Tests/Unit/` (no database); register the suite (section 5) |
 | 16 | Docs | Update the slice row in [../architecture/slice-catalog.md](../architecture/slice-catalog.md) and set `status: implemented` where code now exists |
-| 17 | Verify | `php artisan test --compact app/Features/Vendor/Tests`, `vendor/bin/pint --dirty --format agent` |
+| 17 | Verify | `php artisan test --compact --testsuite=Vendor`, `php artisan test --compact --testsuite=Architecture`, `vendor/bin/pint --dirty --format agent`, then `composer ci:check` |
 
 ## 4. One-time wiring (done by the first slice)
 
@@ -89,14 +90,18 @@ app/Features/<Slice>/
 | Route auto-discovery | `bootstrap/app.php` | `withRouting(then: ...)` iterates `app/Features/*/Routes/`; `web.php` → `Route::middleware('web')->group(...)`, `api.php` → `Route::middleware('api')->group(...)` |
 | Factory resolver | `app/Providers/AppServiceProvider.php` | `Factory::guessFactoryNamesUsing()` maps `App\Features\<Slice>\Models\<Model>` to `Database\Factories\<Model>Factory`; models also declare `/** @use HasFactory<VendorFactory> */` |
 | Strict models | `app/Providers/AppServiceProvider.php` | `Model::shouldBeStrict(! app()->isProduction())` (never `Model::unguard()`) |
-| Security headers middleware | `app/Features/Shared/Http/Middleware/` + `bootstrap/app.php` `withMiddleware()` | Planned, see [../security/owasp-mapping.md](../security/owasp-mapping.md) A02 |
+| Security headers middleware | `app/Features/Shared/Http/Middleware/SecurityHeaders.php` + `bootstrap/app.php` `withMiddleware()` | Implemented (ABP-9, global append), see [../security/owasp-mapping.md](../security/owasp-mapping.md) A02 |
 
 ## 5. Test suite registration
 
+**Status: implemented for the Shared slice (ABP-9).** Each slice registers once; Pest binding is by glob and needs no per-slice edit.
+
 | File | Addition |
 |---|---|
-| `phpunit.xml` | `<testsuite name="Vendor"><directory>app/Features/Vendor/Tests</directory></testsuite>` |
-| `tests/Pest.php` | `pest()->extend(Tests\TestCase::class)->use(Illuminate\Foundation\Testing\RefreshDatabase::class)->in('../app/Features/Vendor/Tests');` |
+| `phpunit.xml` | `<testsuite name="Vendor"><directory>app/Features/Vendor/Tests</directory></testsuite>` and `<exclude><directory>app/Features/Vendor/Tests</directory></exclude>` inside `<source>` |
+| `tests/Pest.php` | None. `->in('AccessMatrix', '../app/Features/*/Tests/Feature')` already binds `Tests\TestCase` and `RefreshDatabase` to every slice `Tests/Feature` folder. `Tests/Unit` tests run without a database |
+| `tests/Architecture/SliceMap.php` | Already lists all 13 slices and their allowed edges; edit it only together with [../architecture/slice-catalog.md](../architecture/slice-catalog.md) |
+| Check | `ToolConfigTest` (ABP-9) fails when a slice `Tests` folder is not registered; the architecture suite fails when a folder under `app/Features` is not in the slice map |
 
 ## 6. Done checklist
 

@@ -1,0 +1,76 @@
+#!/bin/sh
+for tool in git npm grep awk xargs sed cut sort; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "pre-commit: $tool is not on PATH. Install it or fix PATH, then commit again." >&2
+        exit 1
+    fi
+done
+
+partially_staged=$(git diff --cached --name-only --diff-filter=ACMR -z | xargs -0 -n1 sh -c '[ -z "$1" ] || git diff --quiet -- "$1" || printf "%s\n" "$1"' sh)
+
+if [ -n "$partially_staged" ]; then
+    echo "Commit blocked: these files have both staged and unstaged changes." >&2
+    printf '%s\n' "$partially_staged" | sed 's/^/  /' >&2
+    echo "Stage the rest of each file with git add, or undo the unstaged part, then commit again." >&2
+    exit 1
+fi
+
+staged_names=$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR) || exit 1
+
+env_files=$(printf '%s\n' "$staged_names" | grep -E '(^|/)\.env(\.[^/]+)?$' | grep -vE '(^|/)\.env\.example$' || true)
+
+if [ -n "$env_files" ]; then
+    echo "Commit blocked: environment files must never be committed." >&2
+    printf '%s\n' "$env_files" | sed 's/^/  /' >&2
+    echo "Unstage them with git restore --staged <file>. Only .env.example may be committed." >&2
+    exit 1
+fi
+
+staged_diff=$(git -c core.quotePath=false diff --cached --no-color --no-ext-diff --no-textconv --src-prefix=a/ --dst-prefix=b/ -U0 --diff-filter=ACMR) || exit 1
+
+added_lines=$(printf '%s\n' "$staged_diff" | awk '
+    /^diff --git / { header = 1; file = ""; next }
+    header && /^\+\+\+ b\// { file = substr($0, 7); next }
+    header && /^@@/ { header = 0; next }
+    header { next }
+    /^\+/ { if (file != "") { print file "\t" substr($0, 2) } }
+') || exit 1
+
+secret_names='APP_KEY|PAYPAL_CLIENT_SECRET|ANTHROPIC_API_KEY|TELEGRAM_BOT_TOKEN|TELEGRAM_WEBHOOK_SECRET|ANTIBODY_TOKEN_HMAC_KEY|DEMO_OWNER_PASSWORD'
+quote="[\"']"
+value_start='[^"'"'"'[:space:]<$.`]'
+placeholder='(your-[a-z0-9-]+|change-me|generate-[a-z0-9-]+)(["'"'"'`,;)[:space:]]|$)'
+assignment="($secret_names)$quote?[[:space:]]*(=>|=|:)[[:space:]]*$quote?"
+findings=""
+
+report() {
+    files=$(printf '%s\n' "$added_lines" | grep -E -e "$2" | cut -f1 | sort -u || true)
+
+    if [ -n "$files" ]; then
+        findings="$findings$(printf '%s\n' "$files" | sed "s/^/  $1 in /")
+"
+    fi
+}
+
+report 'private key' '-----BEGIN[ A-Z]*PRIVATE KEY-----'
+report 'Anthropic API key' 'sk-ant-[A-Za-z0-9_-]{20,}'
+report 'Telegram bot token' '(^|[^0-9])[0-9]{8,10}:[A-Za-z0-9_-]{35}([^A-Za-z0-9_-]|$)'
+report 'PayPal access token' 'A21AA[A-Za-z0-9_-]{20,}'
+
+assignments=$(printf '%s\n' "$added_lines" | grep -E -e "$assignment$value_start" | grep -vE -e "$assignment$placeholder" | cut -f1 | sort -u || true)
+
+if [ -n "$assignments" ]; then
+    findings="$findings$(printf '%s\n' "$assignments" | sed 's/^/  secret value assignment in /')
+"
+fi
+
+if [ -n "$findings" ]; then
+    echo "Commit blocked: the staged changes look like they contain secrets." >&2
+    printf '%s' "$findings" >&2
+    echo "Remove the value, keep secrets in .env only, and use a placeholder such as your-... in examples." >&2
+    exit 1
+fi
+
+npm run pre-commit
+
+git diff --cached --name-only --diff-filter=ACMR -z | xargs -0 -r git add --

@@ -6,13 +6,14 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "filament/filament": "^5.0",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.13",
         "laravel/boost": "^2.2",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
@@ -20,7 +21,9 @@
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "pestphp/pest": "^5.3",
-        "pestphp/pest-plugin-laravel": "^5.0"
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "phpstan/phpstan-strict-rules": "^2.1",
+        "rector/rector": "^2.8"
     },
     "autoload": {
         "psr-4": {
@@ -40,16 +43,53 @@
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
             "@php artisan migrate --force",
-            "npm install --ignore-scripts",
+            "npm ci --ignore-scripts",
+            "npm run prepare",
             "npm run build"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
             "@php artisan dev"
         ],
+        "lint": [
+            "pint --parallel"
+        ],
+        "lint:check": [
+            "pint --parallel --test"
+        ],
+        "rector": [
+            "rector"
+        ],
+        "refactor:check": [
+            "rector process --dry-run --no-progress-bar"
+        ],
+        "types:check": [
+            "phpstan analyse --memory-limit=1G --no-progress"
+        ],
+        "audit:check": [
+            "@composer audit",
+            "npm audit --audit-level=high"
+        ],
+        "fix": [
+            "@rector",
+            "@lint"
+        ],
+        "check": [
+            "@composer validate --strict",
+            "@refactor:check",
+            "@lint:check",
+            "@types:check",
+            "@audit:check"
+        ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
-            "@php artisan test"
+            "@php artisan test --parallel"
+        ],
+        "ci:check": [
+            "Composer\\Config::disableProcessTimeout",
+            "@check",
+            "npm run build",
+            "@test"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

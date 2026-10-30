@@ -1,0 +1,59 @@
+#!/bin/sh
+for tool in git npm grep; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "pre-push: $tool is not on PATH. Install it or fix PATH, then push again." >&2
+        exit 1
+    fi
+done
+
+pattern='^task/ABP-[0-9]+-[a-z0-9-]+$'
+zero='0000000000000000000000000000000000000000'
+
+refuse() {
+    echo "Push blocked: $1" >&2
+    echo "Push only task branches named task/ABP-123-short-slug. Changes reach main through a pull request." >&2
+    exit 1
+}
+
+check_branch() {
+    if [ "$1" = "main" ]; then
+        refuse "pushing to main is not allowed."
+    fi
+
+    if ! printf '%s\n' "$1" | grep -Eq "$pattern"; then
+        refuse "branch $1 does not match task/ABP-#-slug."
+    fi
+}
+
+current=$(git symbolic-ref --quiet --short HEAD || true)
+
+if [ -z "$current" ]; then
+    refuse "HEAD is detached."
+fi
+
+check_branch "$current"
+
+head_sha=$(git rev-parse --verify --quiet HEAD) || refuse "HEAD has no commit to push."
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [ -z "$remote_ref" ]; then
+        continue
+    fi
+
+    case "$remote_ref" in
+        refs/heads/*) ;;
+        *) refuse "only branches may be pushed, not $remote_ref." ;;
+    esac
+
+    if [ "$local_sha" = "$zero" ]; then
+        refuse "deleting the remote branch ${remote_ref#refs/heads/} is not allowed."
+    fi
+
+    check_branch "${remote_ref#refs/heads/}"
+
+    if [ "$local_sha" != "$head_sha" ]; then
+        refuse "only the checked-out HEAD may be pushed, so the local gate tests what ships."
+    fi
+done
+
+npm run ci:check

@@ -2,9 +2,11 @@
 title: Vertical Slice Architecture
 purpose: Define how Anti-Body code is organized into vertical slices, where each responsibility lives, and how slices are wired into Laravel.
 audience: [developers, ai-agents]
-status: planned
+status: mixed
 related:
   - ./slice-catalog.md
+  - ../development/testing-strategy.md
+  - ../decisions/0007-local-hooks-and-single-ci-gate.md
   - ./filament-separation.md
   - ../development/adding-a-slice.md
   - ../development/coding-conventions.md
@@ -22,7 +24,8 @@ last_verified: 2026-10-30
 > - Business logic lives only in Actions named `VerbNounAction` with one public `handle()` method. Entry points (controllers, MCP tools, commands, Filament actions) parse, authorize, delegate to one Action and respond.
 > - Filament UI stays outside the slices in `app/Filament/`. Slices expose UI schema through model traits (see [filament-separation.md](./filament-separation.md)).
 > - Wiring is automatic: slice service providers are discovered by `AppServiceProvider`, slice routes by the `then:` callback in `bootstrap/app.php`, slice tests by `phpunit.xml` testsuites and `tests/Pest.php`.
-> - **Status: planned.** `app/Features/` does not exist yet. The first slice that needs a wiring point adds it (feature prompt 4.1).
+> - **Status: mixed.** Only `app/Features/Shared/` exists (ABP-9): security headers middleware, `RequiresAbility` attribute, tests, plus the test wiring and `tests/Architecture` enforcement. Provider and route auto-discovery are planned; the first slice that needs a wiring point adds it (feature prompt 4.1).
+> - Boundaries are enforced by tests: `tests/Architecture/SliceMap.php` is the machine-readable slice map; Actions and Data are `final`; slice `Models`, `Http`, `Policies`, `Providers`, `Listeners`, `Jobs`, `Mcp`, `Ai`, `Routes` and `Commands` are internal to their slice.
 > - AI agents load the path-scoped rules from [.ai/rules/index.md](../../.ai/rules/index.md) (implemented, 15 rules recorded through Boost on 2026-10-30) before editing any file.
 
 ## 1. Why vertical slices
@@ -42,7 +45,7 @@ The slice list is fixed. A new slice needs owner approval.
 
 | Slice | One-line responsibility |
 |---|---|
-| Shared | Cross-cutting only: base controller, security headers middleware, shared enums, money and time helpers |
+| Shared | Cross-cutting only: security headers middleware (implemented), `RequiresAbility` attribute (implemented), base controller, shared enums, money and time helpers (planned). Depends on no other slice |
 | Vendor | Verified payee registry (FR-01 to FR-03) |
 | Invoice | Intake, file storage, SHA-256, invoice state machine (FR-04 to FR-06, FR-24) |
 | Extraction | AI extractor, schema validation, retry (FR-08 to FR-10) |
@@ -156,11 +159,11 @@ app/Features/Invoice/
 ├── Routes/
 │   └── web.php
 └── Tests/
-    ├── Actions/
+    ├── Feature/
     │   ├── ReceiveInvoiceActionTest.php
-    │   └── TransitionInvoiceStatusActionTest.php
-    └── Http/
-        └── InvoiceFileControllerTest.php
+    │   └── InvoiceFileControllerTest.php
+    └── Unit/
+        └── TransitionInvoiceStatusActionTest.php
 ```
 
 The matching Filament resource lives outside the slice:
@@ -180,7 +183,7 @@ app/Filament/Resources/Invoices/
 
 ## 6. Wiring
 
-All wiring below is **planned**. Each wiring point is added by the first slice that needs it.
+Rows marked Implemented exist in code. Every other wiring point is **planned** and added by the first slice that needs it. The code samples in 6.1 to 6.4 are illustrative (planned); the 6.2 sample also shows slice route loading, which does not exist yet, while its `SecurityHeaders` registration matches `bootstrap/app.php`.
 
 | Wiring point | File | Mechanism | Status |
 |---|---|---|---|
@@ -188,10 +191,12 @@ All wiring below is **planned**. Each wiring point is added by the first slice t
 | Slice routes | `bootstrap/app.php` | `withRouting(then: ...)` loads every `Routes/web.php` with `web` middleware and every `Routes/api.php` with `api` middleware, no `api/v1` prefix | Planned |
 | Factory resolution | `app/Providers/AppServiceProvider.php` | `Factory::guessFactoryNamesUsing()` maps `App\Features\X\Models\Foo` to `Database\Factories\FooFactory` | Planned |
 | Model factory resolution in reverse | factory `$model` property | Each factory declares `protected $model = Foo::class;` | Planned |
-| Slice tests | `phpunit.xml` and `tests/Pest.php` | One `<testsuite>` per slice, Pest binds `Tests\TestCase` to slice `Tests/` folders | Planned |
+| Slice tests | `phpunit.xml` and `tests/Pest.php` | One `<testsuite>` per slice (today `Shared`), each slice `Tests` folder excluded from `<source>`; Pest binds `Tests\TestCase` and `RefreshDatabase` to `../app/Features/*/Tests/Feature` by glob | Implemented for Shared (ABP-9) |
+| Architecture enforcement | `tests/Architecture/` | Slice map, internal and public namespaces, class structure; a folder under `app/Features` missing from `tests/Architecture/SliceMap.php` fails the suite | Implemented (ABP-9) |
 | Scheduler | `routes/console.php` | Reconcile every 5 min, baseline sync nightly, HOLD expiry | Planned |
 | Rate limiters | Shared service provider | `RateLimiter::for('mcp')`, `invoice-upload`, `telegram-callback` | Planned |
-| Security headers | `bootstrap/app.php` `withMiddleware()` | Shared middleware appended to `web` | Planned |
+| Security headers | `bootstrap/app.php` `withMiddleware()` | `App\Features\Shared\Http\Middleware\SecurityHeaders` appended as global middleware (`$middleware->append(...)`), so it covers web, api and panel responses | Implemented (ABP-9) |
+| Guest redirects | `bootstrap/app.php` `redirectGuestsTo` | `null` (JSON 401) for `api` and `api/*`, otherwise the Filament admin login route | Implemented (ABP-9) |
 
 ### 6.1 Provider auto-discovery (illustrative, planned)
 
@@ -282,9 +287,7 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [
-            \App\Features\Shared\Http\Middleware\SetSecurityHeaders::class,
-        ]);
+        $middleware->append(\App\Features\Shared\Http\Middleware\SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -309,7 +312,7 @@ use App\Features\Invoice\Actions\TransitionInvoiceStatusAction;
 use App\Features\Invoice\Commands\ExpireHeldInvoicesCommand;
 use Illuminate\Support\ServiceProvider;
 
-class InvoiceServiceProvider extends ServiceProvider
+final class InvoiceServiceProvider extends ServiceProvider
 {
     /** @var list<class-string> */
     private const array ACTIONS = [
@@ -407,34 +410,36 @@ The real implementation also stores the bytes on the private disk, enforces the 
 
 ### 6.5 Slice tests (illustrative, planned)
 
-`phpunit.xml` gets one testsuite per slice when the slice adds its first test:
+All unit and feature tests live inside their slice, in `Tests/Feature` (database, HTTP) and `Tests/Unit` (no database). `phpunit.xml` gets one testsuite per slice named after the slice, plus the two cross-cutting suites. Status: implemented for Shared; the Invoice entry below is illustrative (planned):
 
 ```xml
 <testsuites>
-    <testsuite name="Unit">
-        <directory>tests/Unit</directory>
-    </testsuite>
-    <testsuite name="Feature">
-        <directory>tests/Feature</directory>
+    <testsuite name="Shared">
+        <directory>app/Features/Shared/Tests</directory>
     </testsuite>
     <testsuite name="Invoice">
         <directory>app/Features/Invoice/Tests</directory>
     </testsuite>
-    <testsuite name="Guard">
-        <directory>app/Features/Guard/Tests</directory>
+    <testsuite name="Architecture">
+        <directory>tests/Architecture</directory>
+    </testsuite>
+    <testsuite name="AccessMatrix">
+        <directory>tests/AccessMatrix</directory>
     </testsuite>
 </testsuites>
 ```
 
-`tests/Pest.php` binds the Laravel test case to the slice folders:
+Each slice `Tests` directory is also listed in `<source><exclude>` so tests are not counted as application code.
+
+`tests/Pest.php` (implemented) binds the Laravel test case and `RefreshDatabase` by glob, so no per-slice edit is needed:
 
 ```php
-pest()->extend(Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
-    ->in('Feature', '../app/Features/*/Tests');
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
+    ->in('AccessMatrix', '../app/Features/*/Tests/Feature');
 ```
 
-Pest 5 supports glob patterns in `in()` (verified 2026-10-30 against the Pest 5.x "Configuring Tests" docs, example `->in('../Modules/*/Tests/Browser')`), so one `->in('../app/Features/*/Tests')` binding covers every slice.
+Root `tests/` keeps only `Architecture`, `AccessMatrix`, `Fixtures`, `Support`, `TestCase.php` and `Pest.php`. Details: [../development/testing-strategy.md](../development/testing-strategy.md).
 
 A slice test (illustrative):
 
@@ -465,6 +470,8 @@ it('blocks the same PDF bytes the second time (H7)', function (): void {
 | `declare(strict_types=1)` in every PHP file | Feature prompt section 3 |
 | Constructor property promotion, explicit parameter and return types, `#[\Override]` on overrides | Same |
 | camelCase variables and properties | Same |
+| Actions and Data classes are `final` (Data also `readonly`); concrete slice classes are `final`; an Action has exactly one public `handle()` | `tests/Architecture/StructureTest.php` |
+| Another slice uses only the public namespaces (`Actions`, `Data`, `Enums`, `Events`, `Exceptions`, `Contracts`) of a slice, along an edge declared in `SliceMap`. Models are internal | `tests/Architecture/SliceIsolationTest.php` |
 | Models use `#[Fillable]` and `#[Hidden]`; never `Model::unguard()`; never `$request->all()` into create or update | Same, section 5 A05 |
 | IDs UUIDv7 via `HasUuids` except framework tables, `agents` and `audit_logs` | PRD 14, decision D9 |
 | Money in integer minor units (`*_minor`); time in UTC | PRD 14 |

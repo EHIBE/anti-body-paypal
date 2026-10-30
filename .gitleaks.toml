@@ -1,0 +1,44 @@
+title = "anti-body-paypal"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "antibody-private-key"
+description = "Private key header"
+regex = '''-----BEGIN[ A-Z]*PRIVATE KEY-----'''
+keywords = ["private key"]
+
+[[rules]]
+id = "antibody-anthropic-api-key"
+description = "Anthropic API key"
+regex = '''sk-ant-[A-Za-z0-9_-]{20,}'''
+keywords = ["sk-ant-"]
+
+[[rules]]
+id = "antibody-telegram-bot-token"
+description = "Telegram bot token"
+regex = '''(?:^|[^0-9])([0-9]{8,10}:[A-Za-z0-9_-]{35})(?:[^A-Za-z0-9_-]|$)'''
+secretGroup = 1
+
+[[rules]]
+id = "antibody-paypal-access-token"
+description = "PayPal OAuth access token"
+regex = '''A21AA[A-Za-z0-9_-]{20,}'''
+keywords = ["a21aa"]
+
+[[rules]]
+id = "antibody-secret-assignment"
+description = "Non-empty value assigned to an Anti-Body secret variable"
+regex = '''(?:APP_KEY|PAYPAL_CLIENT_SECRET|ANTHROPIC_API_KEY|TELEGRAM_BOT_TOKEN|TELEGRAM_WEBHOOK_SECRET|ANTIBODY_TOKEN_HMAC_KEY|DEMO_OWNER_PASSWORD)["']?[ \t]*(?:=>|=|:)[ \t]*["']?([^"'\s<$.`][^"'\s`,;)]*)'''
+secretGroup = 1
+keywords = ["app_key", "paypal_client_secret", "anthropic_api_key", "telegram_bot_token", "telegram_webhook_secret", "antibody_token_hmac_key", "demo_owner_password"]
+
+[[rules.allowlists]]
+description = "Documented placeholders"
+regexTarget = "secret"
+regexes = ['''^(?:your-[a-z0-9-]+|change-me|generate-[a-z0-9-]+)$''']
+
+[[rules.allowlists]]
+description = "Placeholder file and scanner fixtures, for this rule only"
+paths = ['''^\.env\.example$''', '''^tests/Fixtures/''']

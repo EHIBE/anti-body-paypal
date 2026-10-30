@@ -19,3 +19,10 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Features/*/Routes/** | .ai/rules/routes.md |
 | app/Features/*/Tests/** | .ai/rules/tests.md |
 | app/Features/*/Models/Traits/** | .ai/rules/traits.md |
+| tests/** | .ai/rules/quality-gates.md |
+| .husky/** | .ai/rules/quality-gates.md |
+| .github/** | .ai/rules/quality-gates.md |
+| phpstan.neon | .ai/rules/quality-gates.md |
+| rector.php | .ai/rules/quality-gates.md |
+| pint.json | .ai/rules/quality-gates.md |
+| composer.json | .ai/rules/quality-gates.md |

@@ -10,7 +10,8 @@ related:
   - ../operations/deployment-render.md
   - ../integrations/paypal-oauth.md
   - ../integrations/telegram.md
-source_of_truth: docs/prd-anti-body-paypal.md sections 12.6, 18, 24.4; feature prompt section 5 (A04, A09, Always)
+  - ../decisions/0007-local-hooks-and-single-ci-gate.md
+source_of_truth: .husky/pre-commit, .gitleaks.toml, .github/workflows/security.yml; docs/prd-anti-body-paypal.md sections 12.6, 18, 24.4; feature prompt section 5 (A04, A09, Always)
 last_verified: 2026-10-30
 ---
 
@@ -21,7 +22,7 @@ last_verified: 2026-10-30
 > - Agent MCP tokens and Telegram approval tokens are stored only as hashes.
 > - Never log secrets, tokens, passwords, PayPal or Anthropic keys, or unnecessary personal data. Mask payout IDs in agent responses.
 > - The public repo contains no real names, no real emails, no real invoices and no live keys.
-> - **Status: mixed.** `.env` is git-ignored today (implemented). Secret-specific env keys and masking code are planned.
+> - **Status: mixed.** `.env` is git-ignored, the pre-commit staged secret scan and the gitleaks CI job are implemented (ABP-9, section 5a). Secret-specific env keys and masking code are planned.
 
 ## 1. Secret inventory
 
@@ -85,6 +86,18 @@ last_verified: 2026-10-30
 | Vendor PayPal emails | `vendors` | Required to pay; sandbox only |
 | Invoice PDFs | Private disk | Raw PDF deletion after 90 days is Roadmap |
 | Webhook payloads | `webhook_events.payload` | Needed for audit and reprocessing |
+
+## 5a. Secret scanning (implemented, ABP-9)
+
+| Layer | What it does | Where |
+|---|---|---|
+| Pre-commit hook | Blocks `.env` and `.env.*` files except `.env.example`; scans only the added staged lines for private keys, Anthropic keys, Telegram bot tokens, PayPal access tokens and non-placeholder values of the known secret variables. Prints file and pattern name, never the value | `.husky/pre-commit` |
+| gitleaks in CI | Scans the full history on every push to `main` and every pull request with default rules plus project rules; placeholders starting `your-`, `change-me` or `generate-` are allowed; `.env.example` and `tests/Fixtures/` are allowlisted | `.github/workflows/security.yml` job `gitleaks`, `.gitleaks.toml` |
+| Dependency review | Fails pull requests that add dependencies with high severity advisories | `security.yml` job `dependency-review` |
+
+The hook can be bypassed locally (`--no-verify`, `HUSKY=0`), which is forbidden; gitleaks in CI is the backstop. Decision record: [../decisions/0007-local-hooks-and-single-ci-gate.md](../decisions/0007-local-hooks-and-single-ci-gate.md).
+
+If a secret is committed or pushed: rotate it first (section 1 lists how). Rewriting history is an owner decision and never replaces rotation. See [../operations/incident-handling.md](../operations/incident-handling.md).
 
 ## 6. Public repo safety (PRD 18, C10)
 

@@ -1,0 +1,36 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/nesbot/carbon/extension.neon
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+    - vendor/pestphp/pest/extension.neon
+
+parameters:
+    paths:
+        - app/
+        - bootstrap/app.php
+        - config/
+        - database/
+        - routes/
+        - tests/
+
+    level: max
+
+    tmpDir: storage/framework/cache/phpstan
+
+    excludePaths:
+        # Reason: these fixtures plant architecture violations on purpose so the scanner self-tests can prove each rule reports them.
+        - tests/Fixtures/Architecture
+
+    ignoreErrors:
+        # Reason: pest-plugin-arch registers the arch() expectations at runtime, so the analyser cannot see the chain.
+        -
+            identifiers:
+                - method.notFound
+                - method.nonObject
+            paths:
+                - tests/Architecture/HygieneTest.php
+                - tests/Architecture/SliceIsolationTest.php
+        # Reason: the arch() expectation chain in SliceIsolationTest reads the not property through the same runtime proxy.
+        -
+            identifier: property.nonObject
+            path: tests/Architecture/SliceIsolationTest.php
