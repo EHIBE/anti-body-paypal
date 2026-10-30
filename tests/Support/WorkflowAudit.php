@@ -23,6 +23,8 @@ final class WorkflowAudit
             ...self::concurrency($yaml),
             ...self::timeouts($yaml),
             ...self::checkouts($yaml),
+            ...self::injection($yaml),
+            ...self::images($yaml),
         ];
     }
 
@@ -33,9 +35,19 @@ final class WorkflowAudit
     {
         $refs = [];
 
-        foreach (self::lines($yaml) as $line) {
-            if (preg_match(self::usesPattern(), $line, $match) === 1) {
-                $refs[] = $match['ref'];
+        foreach (self::jobs($yaml) as $job) {
+            $reusable = Tree::text($job['uses'] ?? null);
+
+            if ($reusable !== '') {
+                $refs[] = $reusable;
+            }
+
+            foreach (Tree::items($job['steps'] ?? null) as $step) {
+                $uses = Tree::text(Tree::at($step, 'uses'));
+
+                if ($uses !== '') {
+                    $refs[] = $uses;
+                }
             }
         }
 
@@ -49,21 +61,21 @@ final class WorkflowAudit
     {
         $violations = [];
 
-        foreach (self::lines($yaml) as $index => $line) {
-            if (preg_match(self::usesPattern(), $line, $match) !== 1 || str_starts_with($match['ref'], './')) {
+        foreach (self::actionRefs($yaml) as $ref) {
+            if (str_starts_with($ref, './')) {
                 continue;
             }
 
-            $number = $index + 1;
+            $number = self::lineOf($yaml, $ref);
 
-            if (preg_match('/^[^@\s]+@[0-9a-f]{40}$/', $match['ref']) !== 1) {
-                $violations[] = "line {$number}: uses {$match['ref']} is not pinned to a 40-hex commit SHA";
+            if (preg_match('/^[^@\s]+@[0-9a-f]{40}$/', $ref) !== 1) {
+                $violations[] = "line {$number}: uses {$ref} is not pinned to a 40-hex commit SHA";
 
                 continue;
             }
 
-            if (trim($match['version'] ?? '') === '') {
-                $violations[] = "line {$number}: uses {$match['ref']} has no trailing # version comment";
+            if (! self::hasVersionComment($yaml, $ref)) {
+                $violations[] = "line {$number}: uses {$ref} has no trailing # version comment";
             }
         }
 
@@ -92,9 +104,61 @@ final class WorkflowAudit
      */
     public static function triggers(string $yaml): array
     {
-        return preg_match('/\bpull_request_target\b/', $yaml) === 1
-            ? ['the pull_request_target trigger is forbidden']
-            : [];
+        $violations = [];
+
+        foreach (['pull_request_target', 'workflow_run'] as $trigger) {
+            if (preg_match('/\b'.$trigger.'\b/', $yaml) === 1) {
+                $violations[] = "the {$trigger} trigger is forbidden";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function injection(string $yaml): array
+    {
+        $violations = [];
+
+        foreach (self::jobs($yaml) as $id => $job) {
+            foreach (Tree::items($job['steps'] ?? null) as $index => $step) {
+                $run = Tree::text(Tree::at($step, 'run'));
+
+                if (preg_match('/\$\{\{\s*github\.(?:event\.|head_ref)[^}]*\}\}/', $run, $match) === 1) {
+                    $violations[] = "job {$id} step {$index}: run interpolates {$match[0]}";
+                }
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function images(string $yaml): array
+    {
+        $violations = [];
+
+        foreach (self::jobs($yaml) as $id => $job) {
+            $images = [];
+            $container = $job['container'] ?? null;
+            $images['container'] = is_string($container) ? $container : Tree::text(Tree::at($container, 'image'));
+
+            foreach (Tree::map($job['services'] ?? null) as $name => $service) {
+                $images["service {$name}"] = Tree::text(Tree::at($service, 'image'));
+            }
+
+            foreach ($images as $label => $image) {
+                if ($image !== '' && preg_match('/@sha256:[0-9a-f]{64}$/', $image) !== 1) {
+                    $violations[] = "job {$id} {$label} image {$image} is not pinned by @sha256:";
+                }
+            }
+        }
+
+        return $violations;
     }
 
     /**
@@ -248,8 +312,27 @@ final class WorkflowAudit
         return explode("\n", str_replace("\r\n", "\n", $yaml));
     }
 
-    private static function usesPattern(): string
+    private static function lineOf(string $yaml, string $needle): int
     {
-        return '/^\s*(?:-\s+)?uses:\s*(?<ref>[^\s#]+)(?:\s*#(?<version>.*))?$/';
+        foreach (self::lines($yaml) as $index => $line) {
+            if (str_contains($line, $needle)) {
+                return $index + 1;
+            }
+        }
+
+        return 0;
+    }
+
+    private static function hasVersionComment(string $yaml, string $ref): bool
+    {
+        foreach (self::lines($yaml) as $line) {
+            $position = strpos($line, $ref);
+
+            if ($position !== false) {
+                return preg_match('/#\s*\S/', substr($line, $position + strlen($ref))) === 1;
+            }
+        }
+
+        return false;
     }
 }

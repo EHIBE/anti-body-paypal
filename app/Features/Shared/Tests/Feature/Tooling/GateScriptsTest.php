@@ -59,7 +59,7 @@ it('runs the test script in parallel after clearing the config cache', function 
 });
 
 it('installs npm packages without lifecycle scripts and then runs the prepare script right after', function (): void {
-    expect(implode("\n", toolingComposerScript('setup')))->toContain("npm install --ignore-scripts\nnpm run prepare");
+    expect(implode("\n", toolingComposerScript('setup')))->toContain("npm ci --ignore-scripts\nnpm run prepare");
 });
 
 it('requires PHP 8.4 or newer within the major version', function (): void {

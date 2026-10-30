@@ -69,20 +69,7 @@ final class Repo
      */
     public static function workflowFiles(): array
     {
-        $files = glob(self::root().'/.github/workflows/*.{yml,yaml}', GLOB_BRACE);
-
-        if ($files === false) {
-            return [];
-        }
-
-        $relative = array_map(
-            static fn (string $file): string => '.github/workflows/'.basename($file),
-            $files,
-        );
-
-        sort($relative);
-
-        return $relative;
+        return self::filesIn('.github/workflows', ['yml', 'yaml']);
     }
 
     /**
@@ -90,6 +77,50 @@ final class Repo
      */
     public static function hookFiles(): array
     {
-        return ['.husky/commit-msg', '.husky/pre-commit', '.husky/pre-push'];
+        return self::filesIn('.husky', []);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function forbiddenHookPatterns(): array
+    {
+        return [
+            'no-verify flag' => '/--no-verify/',
+            'HUSKY=0 switch' => '/HUSKY=0/',
+            'git add -A' => '/git add\s+-A\b/',
+            'git add --all' => '/git add\s+--all\b/',
+            'git add dot' => '/git add\s+\.(\s|$)/',
+            'eval' => '/\beval\b/',
+            'curl' => '/\bcurl\b/',
+            'wget' => '/\bwget\b/',
+        ];
+    }
+
+    /**
+     * @param  list<string>  $extensions
+     * @return list<string>
+     */
+    private static function filesIn(string $directory, array $extensions): array
+    {
+        $entries = scandir(self::path($directory));
+        $relative = [];
+
+        foreach ($entries === false ? [] : $entries as $entry) {
+            $path = self::path($directory.'/'.$entry);
+            $extension = pathinfo($entry, PATHINFO_EXTENSION);
+
+            if (! is_file($path) || str_starts_with($entry, '_')) {
+                continue;
+            }
+
+            if ($extensions === [] || in_array($extension, $extensions, true)) {
+                $relative[] = $directory.'/'.$entry;
+            }
+        }
+
+        sort($relative);
+
+        return $relative;
     }
 }

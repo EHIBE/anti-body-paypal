@@ -10,7 +10,14 @@ use Symfony\Component\Process\ExecutableFinder;
 
 final class Shell
 {
+    private static ?string $resolved = null;
+
     public static function sh(): string
+    {
+        return self::$resolved ??= self::locate();
+    }
+
+    private static function locate(): string
     {
         $found = (new ExecutableFinder)->find('sh');
 

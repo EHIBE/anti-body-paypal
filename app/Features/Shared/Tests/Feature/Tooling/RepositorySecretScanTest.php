@@ -24,12 +24,14 @@ function toolingSecretSamples(): array
     ];
 }
 
-it('reads the five project rules, the placeholder allowlist and the path allowlist from the gitleaks config', function (): void {
+it('reads the five project rules and scopes the placeholder and path allowlists to the assignment rule', function (): void {
     $config = SecretScan::projectConfig();
 
     expect(array_column($config['rules'], 'id'))->toBe(array_keys(toolingSecretSamples()))
-        ->and($config['paths'])->toBe(['^\.env\.example$', '^tests/Fixtures/'])
-        ->and(SecretScan::rule('antibody-secret-assignment')['allowed'])->toBe(['^(?:your-|change-me|generate-)'])
+        ->and($config['paths'])->toBe([])
+        ->and(SecretScan::rule('antibody-secret-assignment')['paths'])->toBe(['^\.env\.example$', '^tests/Fixtures/'])
+        ->and(SecretScan::rule('antibody-anthropic-api-key')['paths'])->toBe([])
+        ->and(SecretScan::rule('antibody-secret-assignment')['allowed'])->toBe(['^(?:your-[a-z0-9-]+|change-me|generate-[a-z0-9-]+)$'])
         ->and(SecretScan::rule('antibody-telegram-bot-token')['secretGroup'])->toBe(1)
         ->and(SecretScan::rule('antibody-secret-assignment')['secretGroup'])->toBe(1);
 });
@@ -77,7 +79,14 @@ it('does not let a value that merely contains a placeholder word through the ass
     'placeholder word in the middle' => ['real-your-secret-value'],
     'uppercase placeholder' => ['YOUR-SECRET'],
     'real looking value' => ['Zx9Qw3Lm5Tn7'],
+    'value starting with punctuation' => ['!Xk9Qw3Lm'],
+    'value starting with an underscore' => ['_Xk9Qw3Lm'],
+    'placeholder prefix followed by a real value' => ['your-RealValue9'],
 ]);
+
+it('detects a secret assigned in a quoted PHP array entry', function (): void {
+    expect(SecretScan::scanText('sample.php', "'DEMO_OWNER_"."PASSWORD' => 'Xk9Qw3Lm'", SecretScan::projectConfig()))->toBe(['sample.php:1 antibody-secret-assignment']);
+});
 
 it('keeps each rule at its length boundary', function (string $id, string $sample, bool $detected): void {
     expect(SecretScan::scanText('sample.txt', $sample, SecretScan::projectConfig()))->toBe($detected ? ["sample.txt:1 {$id}"] : []);
@@ -98,7 +107,9 @@ it('skips an allowlisted fixture path and the example environment file but scans
     $sample = toolingSecretSamples()['antibody-anthropic-api-key'];
     $root = HookSandbox::scratch().'/scan';
 
-    foreach (['tests/Fixtures/leak.txt', 'tests/Fixtures/deep/leak.txt', 'app/leak.txt', 'config/leak.txt', 'tests/leak.txt', '.github/leak.txt'] as $file) {
+    $assignment = toolingSecretSamples()['antibody-secret-assignment'];
+
+    foreach (['tests/Fixtures/deep/leak.txt', 'app/leak.txt', 'config/leak.txt', 'tests/leak.txt', '.github/leak.txt'] as $file) {
         if (! is_dir(dirname($root.'/'.$file))) {
             mkdir(dirname($root.'/'.$file), 0777, true);
         }
@@ -106,20 +117,23 @@ it('skips an allowlisted fixture path and the example environment file but scans
         file_put_contents($root.'/'.$file, $sample."\n");
     }
 
-    file_put_contents($root.'/.env.example', 'APP_'.'KEY=base64:'.str_repeat('Q', 40)."\n");
+    file_put_contents($root.'/tests/Fixtures/assignment.txt', $assignment."\n");
+    file_put_contents($root.'/.env.example', $assignment."\n".$sample."\n");
     file_put_contents($root.'/app/binary.bin', "\0".$sample);
     file_put_contents($root.'/vendor-leak.txt', $sample."\n");
 
     expect(SecretScan::scanRepository($root, $config))->toBe([
+        '.env.example:2 antibody-anthropic-api-key',
         '.github/leak.txt:1 antibody-anthropic-api-key',
         'app/leak.txt:1 antibody-anthropic-api-key',
         'config/leak.txt:1 antibody-anthropic-api-key',
+        'tests/Fixtures/deep/leak.txt:1 antibody-anthropic-api-key',
         'tests/leak.txt:1 antibody-anthropic-api-key',
     ]);
 });
 
 it('matches the path allowlist only from the start of the relative path', function (): void {
-    $paths = SecretScan::projectConfig()['paths'];
+    $paths = SecretScan::rule('antibody-secret-assignment')['paths'];
 
     expect(SecretScan::isAllowedPath('tests/Fixtures/x.txt', $paths))->toBeTrue()
         ->and(SecretScan::isAllowedPath('.env.example', $paths))->toBeTrue()
@@ -140,12 +154,14 @@ it('parses a rule, a rule allowlist and a path allowlist from toml text', functi
         'secretGroup = 1',
         '[[rules.allowlists]]',
         "regexes = ['''^skip''', '''^also''']",
+        '[[rules.allowlists]]',
+        "paths = ['''^fixtures/''']",
         '[[allowlists]]',
         "paths = ['''^a/''']",
     ]);
 
     expect(SecretScan::parse($toml))->toBe([
-        'rules' => [['id' => 'demo-rule', 'regex' => 'tok-([a-z]{4})', 'secretGroup' => 1, 'allowed' => ['^skip', '^also']]],
+        'rules' => [['id' => 'demo-rule', 'regex' => 'tok-([a-z]{4})', 'secretGroup' => 1, 'allowed' => ['^skip', '^also'], 'paths' => ['^fixtures/']]],
         'paths' => ['^a/'],
     ]);
 });

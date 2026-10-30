@@ -13,6 +13,8 @@ final class HookSandbox
 {
     public const string ZERO_SHA = '0000000000000000000000000000000000000000';
 
+    public const array INHERITED_GIT_VARIABLES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_PREFIX', 'GIT_OBJECT_DIRECTORY', 'GIT_COMMON_DIR', 'GIT_NAMESPACE'];
+
     /**
      * @var list<string>
      */
@@ -35,7 +37,7 @@ final class HookSandbox
         mkdir($root.'/nohooks');
 
         $npm = $sandbox->bin.'/npm';
-        file_put_contents($npm, "#!/bin/sh\nprintf '%s\\n' \"\$*\" >> \"\$NPM_LOG\"\nexit \"\${NPM_EXIT:-0}\"\n");
+        file_put_contents($npm, "#!/bin/sh\nprintf '%s\\n' \"\$*\" >> \"\$NPM_LOG\"\nif [ -n \"\$NPM_SCRIPT\" ]; then\n    sh \"\$NPM_SCRIPT\"\nfi\nexit \"\${NPM_EXIT:-0}\"\n");
         chmod($npm, 0755);
 
         $sandbox->git('init', '-q', '-b', $branch)->throw();
@@ -102,7 +104,7 @@ final class HookSandbox
 
     public function git(string ...$arguments): ProcessResult
     {
-        return Process::path($this->repo)->env(['GIT_TERMINAL_PROMPT' => '0'])->run(['git', ...$arguments]);
+        return Process::path($this->repo)->env(['GIT_TERMINAL_PROMPT' => '0', ...self::unsetGitVariables()])->run(['git', ...$arguments]);
     }
 
     public function detachHead(): void
@@ -110,9 +112,22 @@ final class HookSandbox
         $this->git('checkout', '-q', '--detach')->throw();
     }
 
-    public function runHook(string $hook, string $stdin = '', int $npmExit = 0): ProcessResult
+    public function runHook(string $hook, string $stdin = '', int $npmExit = 0, string $npmScript = ''): ProcessResult
     {
-        return self::execute(Repo::path('.husky/'.$hook), [], $this->repo, $this->bin, $stdin, $this->log, $npmExit);
+        return self::execute(Repo::path('.husky/'.$hook), [], $this->repo, $this->bin, $stdin, $this->log, $npmExit, $npmScript);
+    }
+
+    public function npmScriptThatAppends(string $relative, string $line): string
+    {
+        $script = $this->root.'/npm-script.sh';
+        file_put_contents($script, "printf '%s\\n' '".$line."' >> '".$relative."'\n");
+
+        return $script;
+    }
+
+    public function headSha(): string
+    {
+        return trim($this->git('rev-parse', 'HEAD')->throw()->output());
     }
 
     /**
@@ -142,10 +157,10 @@ final class HookSandbox
     /**
      * @param  list<string>  $arguments
      */
-    private static function execute(string $hook, array $arguments, string $cwd, string $prependPath, string $stdin, string $npmLog = '', int $npmExit = 0): ProcessResult
+    private static function execute(string $hook, array $arguments, string $cwd, string $prependPath, string $stdin, string $npmLog = '', int $npmExit = 0, string $npmScript = ''): ProcessResult
     {
         $path = self::searchPath($prependPath);
-        $environment = ['PATH' => $path, 'NPM_LOG' => $npmLog, 'NPM_EXIT' => (string) $npmExit];
+        $environment = ['PATH' => $path, 'NPM_LOG' => $npmLog, 'NPM_EXIT' => (string) $npmExit, 'NPM_SCRIPT' => $npmScript, ...self::unsetGitVariables()];
 
         if (PHP_OS_FAMILY === 'Windows') {
             $environment['Path'] = $path;
@@ -156,6 +171,14 @@ final class HookSandbox
             ->input($stdin)
             ->timeout(120)
             ->run([Shell::sh(), '-e', $hook, ...$arguments]);
+    }
+
+    /**
+     * @return array<string, false>
+     */
+    private static function unsetGitVariables(): array
+    {
+        return array_fill_keys(self::INHERITED_GIT_VARIABLES, false);
     }
 
     private static function searchPath(string $prepend): string

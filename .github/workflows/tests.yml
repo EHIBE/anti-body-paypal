@@ -62,9 +62,6 @@ jobs:
 
       - name: Run CI checks
         run: composer ci:check
-        env:
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ${{ github.workspace }}/database/database.sqlite
 
   postgres:
     name: postgres

@@ -147,6 +147,7 @@ it('accepts a documented placeholder as the value of a secret variable', functio
     'generate prefix' => ['generate-with-artisan'],
     'angle bracket placeholder' => ['<paste-secret-here>'],
     'shell variable reference' => ['${SANDBOX_SECRET}'],
+    'literal three dots' => ['...'],
 ]);
 
 it('accepts a clean change, runs npm pre-commit and keeps untracked and unstaged files as they were', function (): void {
@@ -166,15 +167,127 @@ it('accepts a clean change, runs npm pre-commit and keeps untracked and unstaged
         ]);
 });
 
-it('stages the files that the formatter rewrote during npm pre-commit', function (): void {
+it('stages the lines that npm pre-commit appended to an already staged file and nothing else', function (): void {
     $sandbox = HookSandbox::create();
+    $sandbox->write('untracked.txt', "stays untracked\n");
+    $sandbox->write('tracked.txt', "unstaged edit\n");
     $sandbox->stage('clean.txt', "first\n");
+
+    $script = $sandbox->npmScriptThatAppends('clean.txt', 'appended by the formatter');
+
+    $result = $sandbox->runHook('pre-commit', npmScript: $script);
+
+    expect($result->exitCode())->toBe(0)
+        ->and($sandbox->npmCalls())->toBe(['run pre-commit'])
+        ->and($sandbox->git('show', ':clean.txt')->output())->toBe("first\nappended by the formatter\n")
+        ->and($sandbox->git('diff', '--', 'clean.txt')->output())->toBe('')
+        ->and($sandbox->status())->toBe(['A  clean.txt', ' M tracked.txt', '?? untracked.txt']);
+});
+
+it('names the right file when the first added line imitates a diff header', function (): void {
+    $sandbox = HookSandbox::create();
+    $secret = str_repeat('Z', 24);
+    $sandbox->stage('notes/leak.txt', "++ b/decoy.txt\n".'APP_'.'KEY='.$secret."\n");
+
+    $result = $sandbox->runHook('pre-commit');
+
+    expect($result->exitCode())->toBe(1)
+        ->and($result->errorOutput())->toContain('  secret value assignment in notes/leak.txt')
+        ->and($result->errorOutput())->not->toContain('decoy.txt')
+        ->and($result->errorOutput())->not->toContain($secret)
+        ->and($sandbox->npmCalls())->toBe([]);
+});
+
+it('refuses a secret in a file whose path is not ASCII', function (): void {
+    $sandbox = HookSandbox::create();
+    $secret = str_repeat('Z', 24);
+    $sandbox->stage("notes/\u{e9}.txt", 'APP_'.'KEY='.$secret."\n");
+
+    $result = $sandbox->runHook('pre-commit');
+
+    expect($result->exitCode())->toBe(1)
+        ->and($result->errorOutput())->toContain("  secret value assignment in notes/\u{e9}.txt")
+        ->and($result->errorOutput())->not->toContain($secret)
+        ->and($sandbox->npmCalls())->toBe([]);
+});
+
+it('refuses an environment file in a directory whose name is not ASCII', function (): void {
+    $sandbox = HookSandbox::create();
+    $sandbox->stage("\u{e9}/.env", "APP_NAME=demo\n");
+
+    $result = $sandbox->runHook('pre-commit');
+
+    expect($result->exitCode())->toBe(1)
+        ->and($result->errorOutput())->toContain("  \u{e9}/.env")
+        ->and($sandbox->npmCalls())->toBe([]);
+});
+
+it('still refuses a secret when the repository changes the diff prefixes', function (): void {
+    $sandbox = HookSandbox::create();
+    $sandbox->git('config', 'diff.noprefix', 'true')->throw();
+    $sandbox->git('config', 'diff.mnemonicPrefix', 'true')->throw();
+    $secret = str_repeat('Z', 24);
+    $sandbox->stage('notes/leak.txt', 'APP_'.'KEY='.$secret."\n");
+
+    $result = $sandbox->runHook('pre-commit');
+
+    expect($result->exitCode())->toBe(1)
+        ->and($result->errorOutput())->toContain('  secret value assignment in notes/leak.txt')
+        ->and($result->errorOutput())->not->toContain($secret)
+        ->and($sandbox->npmCalls())->toBe([]);
+});
+
+it('refuses a secret value that starts with punctuation or looks like a placeholder with a real value', function (string $value): void {
+    $sandbox = HookSandbox::create();
+    $sandbox->stage('notes/leak.txt', 'PAYPAL_CLIENT_'.'SECRET='.$value."\n");
+
+    $result = $sandbox->runHook('pre-commit');
+
+    expect($result->exitCode())->toBe(1)
+        ->and($result->errorOutput())->toContain('  secret value assignment in notes/leak.txt')
+        ->and($result->errorOutput())->not->toContain($value)
+        ->and($sandbox->npmCalls())->toBe([]);
+})->with([
+    'exclamation mark' => ['!Xk9Qw3Lm'],
+    'underscore' => ['_Xk9Qw3Lm'],
+    'placeholder prefix with a mixed case value' => ['your-RealValue9'],
+    'placeholder prefix with an underscore tail' => ['your-real_value'],
+    'change me with a suffix' => ['change-me-now-Xk9'],
+]);
+
+it('refuses a secret assigned through a quoted array key', function (string $content, string $secret): void {
+    $sandbox = HookSandbox::create();
+    $sandbox->stage('notes/leak.php', $content."\n");
+
+    $result = $sandbox->runHook('pre-commit');
+
+    expect($result->exitCode())->toBe(1)
+        ->and($result->errorOutput())->toContain('  secret value assignment in notes/leak.php')
+        ->and($result->errorOutput())->not->toContain($secret)
+        ->and($sandbox->npmCalls())->toBe([]);
+})->with(function (): array {
+    $secret = str_repeat('x', 14);
+
+    return [
+        'single quoted key with a fat arrow' => ["'DEMO_OWNER_"."PASSWORD' => '".$secret."',", $secret],
+        'double quoted key with a fat arrow' => ['"DEMO_OWNER_'.'PASSWORD" => "'.$secret.'",', $secret],
+        'json style key' => ['"DEMO_OWNER_'.'PASSWORD": "'.$secret.'"', $secret],
+    ];
+});
+
+it('accepts a placeholder wrapped in markdown code formatting', function (string $line): void {
+    $sandbox = HookSandbox::create();
+    $sandbox->stage('notes/guide.md', $line."\n");
 
     $result = $sandbox->runHook('pre-commit');
 
     expect($result->exitCode())->toBe(0)
-        ->and($sandbox->git('diff', '--cached', '--name-only')->output())->toContain('clean.txt');
-});
+        ->and($sandbox->npmCalls())->toBe(['run pre-commit']);
+})->with([
+    'inline code' => ['Set `PAYPAL_CLIENT_'.'SECRET=your-sandbox-secret` in the env file.'],
+    'inline code with a trailing comma' => ['Use `PAYPAL_CLIENT_'.'SECRET=your-sandbox-secret`, then restart.'],
+    'ellipsis' => ['PAYPAL_CLIENT_'.'SECRET=...'],
+]);
 
 it('fails the commit when npm pre-commit fails and does not stage anything extra', function (): void {
     $sandbox = HookSandbox::create();

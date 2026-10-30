@@ -89,8 +89,8 @@ it('refuses a push from a detached HEAD', function (): void {
 
 it('refuses the whole push when one of several refs is not allowed', function (): void {
     $sandbox = HookSandbox::create('task/ABP-9-install-security-checks');
-    $stdin = toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/task/ABP-9-install-security-checks')
-        .toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/main');
+    $stdin = toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/task/ABP-9-install-security-checks', $sandbox->headSha())
+        .toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/main', $sandbox->headSha());
 
     $result = $sandbox->runHook('pre-push', $stdin);
 
@@ -102,7 +102,7 @@ it('refuses the whole push when one of several refs is not allowed', function ()
 it('allows a task branch pushed to the same ref and runs the single CI gate', function (): void {
     $sandbox = HookSandbox::create('task/ABP-9-install-security-checks');
 
-    $result = $sandbox->runHook('pre-push', toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/task/ABP-9-install-security-checks'));
+    $result = $sandbox->runHook('pre-push', toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/task/ABP-9-install-security-checks', $sandbox->headSha()));
 
     expect($result->exitCode())->toBe(0)
         ->and($result->errorOutput())->toBe('')
@@ -112,7 +112,7 @@ it('allows a task branch pushed to the same ref and runs the single CI gate', fu
 it('allows a task branch with a multi-digit ticket and digits in the slug', function (): void {
     $sandbox = HookSandbox::create('task/ABP-123-add-2fa-v2');
 
-    $result = $sandbox->runHook('pre-push', toolingPushLine('refs/heads/task/ABP-123-add-2fa-v2', 'refs/heads/task/ABP-123-add-2fa-v2'));
+    $result = $sandbox->runHook('pre-push', toolingPushLine('refs/heads/task/ABP-123-add-2fa-v2', 'refs/heads/task/ABP-123-add-2fa-v2', $sandbox->headSha()));
 
     expect($result->exitCode())->toBe(0)
         ->and($sandbox->npmCalls())->toBe(['run ci:check']);
@@ -130,8 +130,33 @@ it('runs the CI gate when the push carries no refs', function (): void {
 it('fails the push when the CI gate fails', function (): void {
     $sandbox = HookSandbox::create('task/ABP-9-install-security-checks');
 
-    $result = $sandbox->runHook('pre-push', toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/task/ABP-9-install-security-checks'), npmExit: 3);
+    $result = $sandbox->runHook('pre-push', toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/task/ABP-9-install-security-checks', $sandbox->headSha()), npmExit: 3);
 
     expect($result->exitCode())->toBe(3)
         ->and($sandbox->npmCalls())->toBe(['run ci:check']);
+});
+
+it('refuses to push a commit that is not the checked-out HEAD', function (string $localSha): void {
+    $sandbox = HookSandbox::create('task/ABP-9-install-security-checks');
+
+    $result = $sandbox->runHook('pre-push', toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/task/ABP-9-install-security-checks', $localSha));
+
+    expect($result->exitCode())->toBe(1)
+        ->and($result->errorOutput())->toContain('only the checked-out HEAD may be pushed, so the local gate tests what ships.')
+        ->and($sandbox->npmCalls())->toBe([]);
+})->with([
+    'an unrelated sha' => [str_repeat('1', 40)],
+    'a sha that only differs in the last character' => [str_repeat('a', 39).'b'],
+]);
+
+it('refuses the whole push when a later ref is not the checked-out HEAD', function (): void {
+    $sandbox = HookSandbox::create('task/ABP-9-install-security-checks');
+    $stdin = toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/task/ABP-9-install-security-checks', $sandbox->headSha())
+        .toolingPushLine('refs/heads/task/ABP-9-install-security-checks', 'refs/heads/task/ABP-9-other', str_repeat('3', 40));
+
+    $result = $sandbox->runHook('pre-push', $stdin);
+
+    expect($result->exitCode())->toBe(1)
+        ->and($result->errorOutput())->toContain('only the checked-out HEAD may be pushed')
+        ->and($sandbox->npmCalls())->toBe([]);
 });

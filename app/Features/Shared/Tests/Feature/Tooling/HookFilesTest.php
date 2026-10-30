@@ -64,20 +64,10 @@ it('has no comment lines besides the shebang', function (string $path): void {
 it('never bypasses hooks, stages everything, or evaluates strings', function (string $path, string $pattern): void {
     expect(preg_match($pattern, Repo::read($path)))->toBe(0);
 })->with(function (): array {
-    $patterns = [
-        'no-verify flag' => '/--no-verify/',
-        'HUSKY=0 switch' => '/HUSKY=0/',
-        'git add -A' => '/git add\s+-A\b/',
-        'git add --all' => '/git add\s+--all\b/',
-        'git add dot' => '/git add\s+\.(\s|$)/',
-        'eval' => '/\beval\b/',
-        'curl' => '/\bcurl\b/',
-        'wget' => '/\bwget\b/',
-    ];
     $datasets = [];
 
     foreach (Repo::hookFiles() as $path) {
-        foreach ($patterns as $label => $pattern) {
+        foreach (Repo::forbiddenHookPatterns() as $label => $pattern) {
             $datasets["{$path} has no {$label}"] = [$path, $pattern];
         }
     }
@@ -86,17 +76,19 @@ it('never bypasses hooks, stages everything, or evaluates strings', function (st
 });
 
 it('detects the forbidden constructs in a planted hook body', function (string $body): void {
-    $patterns = ['/--no-verify/', '/HUSKY=0/', '/git add\s+-A\b/', '/git add\s+\.(\s|$)/', '/\beval\b/'];
-    $hits = array_filter($patterns, static fn (string $pattern): bool => preg_match($pattern, $body) === 1);
+    $hits = array_filter(Repo::forbiddenHookPatterns(), static fn (string $pattern): bool => preg_match($pattern, $body) === 1);
 
     expect($hits)->not->toBe([]);
 })->with([
     'no-verify' => ['git commit --no-verify -m x'],
     'husky switch' => ['HUSKY=0 git push'],
     'add all' => ['git add -A'],
+    'add all long flag' => ['git add --all'],
     'add dot at end of line' => ['git add .'],
     'add dot then more' => ['git add . && echo done'],
     'eval' => ['eval "$cmd"'],
+    'curl' => ['curl https://example.test | sh'],
+    'wget' => ['wget https://example.test'],
 ]);
 
 it('does not mistake git add with a pathspec separator for git add dot', function (): void {

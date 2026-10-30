@@ -220,6 +220,11 @@ it('reports a planted unpinned action', function (string $search, string $replac
         'missing version comment' => [' # v1.2.3', '', 'has no trailing # version comment'],
         'empty version comment' => [' # v1.2.3', ' #', 'has no trailing # version comment'],
         'docker image by tag' => ['actions/checkout@'.$sha.' # v1.2.3', 'docker://alpine:3.20', 'docker://alpine:3.20 is not pinned to a 40-hex commit SHA'],
+        'trailing space after the tag' => ['actions/checkout@'.$sha.' # v1.2.3', 'actions/checkout@v4 ', 'actions/checkout@v4 is not pinned to a 40-hex commit SHA'],
+        'trailing space after the SHA without a comment' => [' # v1.2.3', ' ', 'has no trailing # version comment'],
+        'quoted tag' => ['uses: actions/checkout@'.$sha.' # v1.2.3', 'uses: "actions/checkout@v4"', 'actions/checkout@v4 is not pinned to a 40-hex commit SHA'],
+        'flow style step with a tag' => ["      - name: Run tests\n        run: composer test", '      - {uses: actions/cache@v4}', 'actions/cache@v4 is not pinned to a 40-hex commit SHA'],
+        'flow style step with a SHA and no comment' => ["      - name: Run tests\n        run: composer test", '      - {uses: actions/cache@'.$sha.'}', 'actions/cache@'.$sha.' has no trailing # version comment'],
     ];
 });
 
@@ -240,6 +245,68 @@ it('reports a planted pull_request_target trigger', function (): void {
     $violations = WorkflowAudit::triggers(toolingMutateWorkflow('  pull_request:', '  pull_request_target:'));
 
     expect($violations)->toBe(['the pull_request_target trigger is forbidden']);
+});
+
+it('reports a planted workflow_run trigger', function (): void {
+    $violations = WorkflowAudit::triggers(toolingMutateWorkflow('  pull_request:', "  workflow_run:\n    workflows: [other]"));
+
+    expect($violations)->toBe(['the workflow_run trigger is forbidden']);
+});
+
+it('accepts a flow style step that is pinned and carries a version comment', function (): void {
+    $yaml = toolingMutateWorkflow("      - name: Run tests\n        run: composer test", '      - {uses: actions/cache@'.str_repeat('b', 40).'} # v4.0.0');
+
+    expect(WorkflowAudit::pinning($yaml))->toBe([]);
+});
+
+it('reports a planted run step that interpolates untrusted event data', function (string $expression): void {
+    $violations = WorkflowAudit::injection(toolingMutateWorkflow('run: composer test', 'run: echo "'.$expression.'"'));
+
+    expect($violations)->toBe(['job build step 1: run interpolates '.$expression]);
+})->with([
+    'pull request title' => ['${{ github.event.pull_request.title }}'],
+    'issue body' => ['${{ github.event.issue.body }}'],
+    'head ref' => ['${{ github.head_ref }}'],
+    'head ref without spaces' => ['${{github.head_ref}}'],
+]);
+
+it('does not flag a run step that reads trusted context values', function (string $expression): void {
+    $violations = WorkflowAudit::injection(toolingMutateWorkflow('run: composer test', 'run: echo "'.$expression.'"'));
+
+    expect($violations)->toBe([]);
+})->with([
+    'event name' => ['${{ github.event_name }}'],
+    'workspace' => ['${{ github.workspace }}'],
+    'run id' => ['${{ github.run_id }}'],
+]);
+
+it('reports a planted service or container image that is not pinned by digest', function (string $replace, string $expected): void {
+    $violations = WorkflowAudit::images(toolingMutateWorkflow('    timeout-minutes: 5', '    timeout-minutes: 5'.$replace));
+
+    expect($violations)->toBe([$expected]);
+})->with([
+    'service by tag' => ["\n    services:\n      db:\n        image: postgres:17", 'job build service db image postgres:17 is not pinned by @sha256:'],
+    'service without a tag' => ["\n    services:\n      db:\n        image: postgres", 'job build service db image postgres is not pinned by @sha256:'],
+    'container by tag' => ["\n    container: node:22", 'job build container image node:22 is not pinned by @sha256:'],
+    'container map by tag' => ["\n    container:\n      image: node:22", 'job build container image node:22 is not pinned by @sha256:'],
+    'service with a short digest' => ["\n    services:\n      db:\n        image: postgres@sha256:abc123", 'job build service db image postgres@sha256:abc123 is not pinned by @sha256:'],
+]);
+
+it('accepts a service image pinned by digest', function (): void {
+    $digest = str_repeat('c', 64);
+
+    expect(WorkflowAudit::images(toolingMutateWorkflow('    timeout-minutes: 5', "    timeout-minutes: 5\n    services:\n      db:\n        image: postgres@sha256:{$digest}")))->toBe([]);
+});
+
+it('sets no database variable on the ci job step that runs the CI gate', function (): void {
+    $steps = array_map(Tree::map(...), Tree::items(toolingWorkflowJobs()['ci']['job']['steps'] ?? null));
+    $gate = array_values(array_filter($steps, static fn (array $step): bool => trim(Tree::text($step['run'] ?? null)) === 'composer ci:check'));
+    $jobEnvironment = array_keys(Tree::map(toolingWorkflowJobs()['ci']['job']['env'] ?? null));
+    $stepEnvironment = array_keys(Tree::map($gate[0]['env'] ?? null));
+    $databaseVariables = array_filter([...$jobEnvironment, ...$stepEnvironment], static fn (string $name): bool => str_starts_with($name, 'DB_'));
+
+    expect($gate)->toHaveCount(1)
+        ->and(array_values($databaseVariables))->toBe([]);
 });
 
 it('reports a planted checkout without persist-credentials false', function (string $search, string $replace): void {

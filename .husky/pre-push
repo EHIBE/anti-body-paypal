@@ -33,6 +33,8 @@ fi
 
 check_branch "$current"
 
+head_sha=$(git rev-parse --verify --quiet HEAD) || refuse "HEAD has no commit to push."
+
 while read -r local_ref local_sha remote_ref remote_sha; do
     if [ -z "$remote_ref" ]; then
         continue
@@ -48,6 +50,10 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     fi
 
     check_branch "${remote_ref#refs/heads/}"
+
+    if [ "$local_sha" != "$head_sha" ]; then
+        refuse "only the checked-out HEAD may be pushed, so the local gate tests what ships."
+    fi
 done
 
 npm run ci:check

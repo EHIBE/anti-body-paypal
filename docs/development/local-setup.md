@@ -45,7 +45,7 @@ last_verified: 2026-10-30
 | Step | Command | What the command does |
 |---|---|---|
 | 1 | `git clone https://github.com/EHIBE/anti-body-paypal.git && cd anti-body-paypal` | Gets the source |
-| 2 | `composer run setup` | Runs `composer install`, copies `.env.example` to `.env` when `.env` is missing, `php artisan key:generate`, `php artisan migrate --force`, `npm install --ignore-scripts`, `npm run prepare` (registers the Husky Git hooks), `npm run build` |
+| 2 | `composer run setup` | Runs `composer install`, copies `.env.example` to `.env` when `.env` is missing, `php artisan key:generate`, `php artisan migrate --force`, `npm ci --ignore-scripts`, `npm run prepare` (registers the Husky Git hooks), `npm run build` |
 | 3 | `touch database/database.sqlite` (only if migrate reports a missing file) | `DB_CONNECTION=sqlite` uses `database/database.sqlite` |
 | 4 | `php artisan make:filament-user --no-interaction --name="Demo Owner" --email="owner@example.test" --password="<choose-a-strong-password>"` | Creates the owner login for the `admin` panel |
 | 5 | `composer run dev` | Runs `php artisan dev` with the Composer process timeout disabled (local server, queue, logs, Vite) |

@@ -75,6 +75,9 @@ it('rejects a Co-Authored-By trailer even when the subject is valid', function (
     'on an exempt merge subject' => ["Merge branch 'x'\n\nCo-Authored-By: X <x@example.test>\n"],
     'on an exempt revert subject' => ["Revert \"feat: [ABP-1] X\"\n\nCo-Authored-By: X <x@example.test>\n"],
     'on an exempt fixup subject' => ["fixup! feat: [ABP-1] X\n\nCo-Authored-By: X <x@example.test>\n"],
+    'space before the colon' => ["feat: [ABP-9] Add thing\n\nCo-authored-by : X <x@example.test>\n"],
+    'tab before the colon' => ["feat: [ABP-9] Add thing\n\nCo-Authored-By\t: X <x@example.test>\n"],
+    'in a crlf message' => ["feat: [ABP-9] Add thing\r\n\r\nCo-Authored-By: X <x@example.test>\r\n"],
     'in the middle of the body' => ["feat: [ABP-9] Add thing\n\nCo-Authored-By: X <x@example.test>\n\nMore text.\n"],
     'with an invalid subject' => ["nonsense\n\nCo-Authored-By: X <x@example.test>\n"],
 ]);
@@ -89,6 +92,32 @@ it('rejects a Generated with line even when the subject is valid', function (str
     'bracketed link' => ["feat: [ABP-9] Add thing\n\nGenerated with [Tool](https://example.test)\n"],
     'on an exempt merge subject' => ["Merge branch 'x'\n\nGenerated with a tool\n"],
     'on an exempt squash subject' => ["squash! feat: [ABP-1] X\n\nGenerated with a tool\n"],
+    'lowercase' => ["feat: [ABP-9] Add thing\n\ngenerated with x\n"],
+    'uppercase' => ["feat: [ABP-9] Add thing\n\nGENERATED WITH X\n"],
+    'in a crlf message' => ["feat: [ABP-9] Add thing\r\n\r\nGenerated with a tool\r\n"],
+]);
+
+it('accepts a valid crlf commit message', function (string $message): void {
+    $result = HookSandbox::runCommitMessageHook($message);
+
+    expect($result->exitCode())->toBe(0)
+        ->and($result->errorOutput())->toBe('');
+})->with([
+    'subject only' => ["feat: [ABP-9] Add thing\r\n"],
+    'subject and body' => ["fix: [ABP-9] Add thing\r\n\r\nLonger explanation.\r\n"],
+    'comment lines first' => ["# comment\r\nchore: [ABP-9] Add thing\r\n"],
+    'exempt merge' => ["Merge branch 'x'\r\n"],
+]);
+
+it('rejects a crlf subject whose action is only whitespace', function (string $message): void {
+    $result = HookSandbox::runCommitMessageHook($message);
+
+    expect($result->exitCode())->toBe(1)
+        ->and($result->errorOutput())->toContain('Commit blocked: invalid subject');
+})->with([
+    'carriage return after the space' => ["feat: [ABP-9] \r\n"],
+    'carriage return without a space' => ["feat: [ABP-9]\r\n"],
+    'double space and carriage return' => ["feat: [ABP-9]  \r\n"],
 ]);
 
 it('fails when the commit message file does not exist', function (): void {

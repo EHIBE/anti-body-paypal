@@ -8,14 +8,14 @@ use RuntimeException;
 use Symfony\Component\Finder\Finder;
 
 /**
- * @phpstan-type Rule array{id: string, regex: string, secretGroup: int, allowed: list<string>}
+ * @phpstan-type Rule array{id: string, regex: string, secretGroup: int, allowed: list<string>, paths: list<string>}
  * @phpstan-type Config array{rules: list<Rule>, paths: list<string>}
  */
 final class SecretScan
 {
-    public const array SCANNED_DIRECTORIES = ['app', 'bootstrap', 'config', 'database', 'routes', 'resources', 'tests', 'docs', '.github'];
+    public const array SCANNED_DIRECTORIES = ['app', 'bootstrap', 'config', 'database', 'routes', 'resources', 'tests', 'docs', '.github', '.claude', '.ai'];
 
-    public const array SCANNED_FILES = ['.env.example'];
+    public const array SCANNED_FILES = ['.env.example', 'README.md', 'CLAUDE.md', 'AGENTS.md', 'phpunit.xml', 'composer.json', 'package.json'];
 
     private const int MAX_BYTES = 2_000_000;
 
@@ -50,6 +50,7 @@ final class SecretScan
         $regexes = [];
         $groups = [];
         $allowed = [];
+        $rulePaths = [];
         $paths = [];
         $section = 'root';
 
@@ -61,6 +62,7 @@ final class SecretScan
                 $regexes[] = '';
                 $groups[] = 0;
                 $allowed[] = [];
+                $rulePaths[] = [];
                 $section = 'rule';
 
                 continue;
@@ -86,6 +88,8 @@ final class SecretScan
                 $groups[$last] = (int) $match[1];
             } elseif ($section === 'ruleAllow' && str_starts_with($line, 'regexes')) {
                 $allowed[$last] = [...$allowed[$last], ...self::quoted($line)];
+            } elseif ($section === 'ruleAllow' && str_starts_with($line, 'paths')) {
+                $rulePaths[$last] = [...$rulePaths[$last], ...self::quoted($line)];
             } elseif ($section === 'globalAllow' && str_starts_with($line, 'paths')) {
                 $paths = [...$paths, ...self::quoted($line)];
             }
@@ -94,7 +98,7 @@ final class SecretScan
         $rules = [];
 
         foreach ($ids as $index => $id) {
-            $rules[] = ['id' => $id, 'regex' => $regexes[$index], 'secretGroup' => $groups[$index], 'allowed' => $allowed[$index]];
+            $rules[] = ['id' => $id, 'regex' => $regexes[$index], 'secretGroup' => $groups[$index], 'allowed' => $allowed[$index], 'paths' => $rulePaths[$index]];
         }
 
         return ['rules' => $rules, 'paths' => $paths];
@@ -110,6 +114,10 @@ final class SecretScan
 
         foreach (explode("\n", str_replace("\r\n", "\n", $text)) as $index => $line) {
             foreach ($config['rules'] as $rule) {
+                if (self::isAllowedPath($path, $rule['paths'])) {
+                    continue;
+                }
+
                 if (self::lineHasSecret($line, $rule)) {
                     $number = $index + 1;
                     $findings[] = "{$path}:{$number} {$rule['id']}";
