@@ -297,7 +297,7 @@ Persona is illustrative and built from the research above. Replace with a real s
 | C4 | Text description of features | Devpost description built from section 1 and 8 | Devpost form |
 | C5 | Functional demo: run instructions or hosted URL | Both | README, hosted URL |
 | C6 | Name AI tools and how they are used | Table in README | README "AI used" |
-| C7 | Public repo with all source, assets, instructions | GitHub `EHIBE/anti-body` | Repo root |
+| C7 | Public repo with all source, assets, instructions | GitHub `EHIBE/anti-body-paypal` | Repo root |
 | C8 | Open source license visible in About | MIT `LICENSE` file, set in GitHub About | Repo root |
 | C9 | Video under 3 min, public on YouTube, shows it running | Script in section 20, target 2:50 | YouTube link in Devpost |
 | C10 | No unlicensed music or third-party trademarks in video | Royalty-free or no music. Fictional vendor names only. PayPal shown only as the platform used | Section 20 |
@@ -1462,8 +1462,8 @@ $680 protected. Review in dashboard.
 
 | Render service | Plan | Runs |
 |---|---|---|
-| `anti-body-web` | Starter, Docker, region Singapore | nginx + php-fpm + `queue:work` + `schedule:work` under supervisord |
-| `anti-body-db` | Postgres basic-256mb, Singapore | Database |
+| `anti-body-paypal-web` | Starter, Docker, region Singapore | nginx + php-fpm + `queue:work` + `schedule:work` under supervisord |
+| `anti-body-paypal-db` | Postgres basic-256mb, Singapore | Database |
 
 Pre-deploy command: `php artisan migrate --force && php artisan optimize`.
 

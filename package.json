@@ -1,5 +1,6 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
+    "name": "anti-body-paypal",
     "private": true,
     "type": "module",
     "scripts": {
