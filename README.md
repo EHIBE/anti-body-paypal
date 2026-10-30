@@ -1,5 +1,7 @@
 # Anti-Body
 
+[![tests](https://github.com/EHIBE/anti-body-paypal/actions/workflows/tests.yml/badge.svg)](https://github.com/EHIBE/anti-body-paypal/actions/workflows/tests.yml)
+[![security](https://github.com/EHIBE/anti-body-paypal/actions/workflows/security.yml/badge.svg)](https://github.com/EHIBE/anti-body-paypal/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Status: in development](https://img.shields.io/badge/status-in%20development-orange.svg)
 
@@ -114,7 +116,7 @@ php artisan make:filament-user
 composer run dev
 ```
 
-`composer run setup` installs PHP and Node dependencies, copies `.env.example` to `.env`, generates the app key, runs migrations and builds assets. Open `http://localhost:8000/admin` and log in with the user you created.
+`composer run setup` installs PHP and Node dependencies, copies `.env.example` to `.env`, generates the app key, runs migrations, registers the Git hooks (`npm run prepare`) and builds assets. Open `http://localhost:8000/admin` and log in with the user you created.
 
 **Planned:**
 
@@ -177,14 +179,17 @@ Details: [docs/security/threat-model.md](docs/security/threat-model.md), [docs/s
 
 ## Tests
 
-**Implemented:** Pest 5 runs the default example tests.
+**Implemented:** Pest 5 runs architecture rules (slice isolation, class structure, no raw SQL, no debug calls), an access matrix (every protected surface needs a row, guests are refused), runtime security tests (security headers, guest access, error leaks, CSRF, login responses) and the example tests. Static analysis is Larastan at level max with strict rules; Rector and Pint run in the same gate. GitHub Actions runs the gate on SQLite and the whole suite on Postgres 17, plus gitleaks, dependency review, zizmor and actionlint. Git hooks (Husky) check commit messages, secrets and branch names, and run the gate before every push. Details: [docs/decisions/0007-local-hooks-and-single-ci-gate.md](docs/decisions/0007-local-hooks-and-single-ci-gate.md).
 
 ```bash
 php artisan test --compact
+composer ci:check
 vendor/bin/pint --dirty --format agent
 ```
 
-**Planned:** unit tests for every hard rule, signal boundary, score monotonicity, decision table, state transition and hash chain; feature tests for upload-to-decision, approvals, Telegram callbacks, webhooks and MCP tools; red team cases (BoxPro impersonation, injected "ignore previous rules", duplicates, agent argument); nightly AI eval; Larastan level 10 once approved. Strategy: [docs/development/testing-strategy.md](docs/development/testing-strategy.md).
+`composer ci:check` is the full gate (validate, Rector dry run, Pint, Larastan, audits, asset build, parallel tests). On Windows, commit and push from PowerShell.
+
+**Planned:** unit tests for every hard rule, signal boundary, score monotonicity, decision table, state transition and hash chain; feature tests for upload-to-decision, approvals, Telegram callbacks, webhooks and MCP tools; red team cases (BoxPro impersonation, injected "ignore previous rules", duplicates, agent argument); nightly AI eval. Strategy: [docs/development/testing-strategy.md](docs/development/testing-strategy.md).
 
 ## Tech stack
 
@@ -195,11 +200,14 @@ vendor/bin/pint --dirty --format agent
 | Filament | 5.11.0 (Livewire 4) | implemented (panel `admin` at `/admin`) |
 | Pest | 5.3.4 with pest-plugin-laravel 5.0.1 | implemented |
 | Laravel Pint | 1.32.1 | implemented |
+| Larastan (on PHPStan 2.3.4), phpstan-strict-rules | v3.13.2, 2.1.0 | implemented (dev, level max) |
+| Rector | 2.8.3 | implemented (dev) |
+| Husky (Git hooks) | 9.1.7 | implemented (dev) |
 | Laravel Boost | 2.10.4 | implemented (dev) |
 | Tailwind CSS / Vite | 4 / 8 | implemented |
 | Database | SQLite locally and in tests, Render Postgres in production | SQLite implemented, Postgres planned |
 | Queue, cache, session | Laravel database drivers | implemented (config) |
-| laravel/ai, laravel/mcp (direct), laravel/sanctum, larastan/larastan, laravel-notification-channels/telegram | latest compatible | planned, need approval |
+| laravel/ai, laravel/mcp (direct), laravel/sanctum, laravel-notification-channels/telegram | latest compatible | planned, need approval |
 | Hosting | Render web service (Docker) + Render Postgres | planned |
 
 ## Documentation

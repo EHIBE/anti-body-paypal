@@ -15,12 +15,12 @@ last_verified: 2026-10-30
 > **TL;DR**
 > - Decision: every test is a Pest 5 test (`it()` / `test()` closures). Installed: pestphp/pest 5.3.4, pestphp/pest-plugin-laravel 5.0.1.
 > - Create tests with `php artisan make:test --pest <Name>`; run with `php artisan test --compact` or `vendor/bin/pest`.
-> - Slice tests live in `app/Features/<Slice>/Tests/`, registered as testsuites in `phpunit.xml` and bound to `Tests\TestCase` in `tests/Pest.php` (planned wiring).
+> - Slice tests live in `app/Features/<Slice>/Tests/Feature` and `Tests/Unit`, one testsuite per slice in `phpunit.xml`; `tests/Pest.php` binds `Tests\TestCase` by glob (implemented for Shared).
 > - The prior private project used PHPUnit classes with `#[Test]`; Anti-Body intentionally differs.
 
 ## Status
 
-Accepted, 2026-10-30. Implementation status: implemented (Pest installed, `tests/Pest.php` binds `tests/Feature` to `Tests\TestCase`, example tests in `tests/Feature` and `tests/Unit`). Slice testsuites planned.
+Accepted, 2026-10-30. Implementation status: implemented (Pest installed; `tests/Pest.php` binds `Tests\TestCase` and `RefreshDatabase` to `AccessMatrix` and `../app/Features/*/Tests/Feature`; `phpunit.xml` has one testsuite per slice, today `Shared`, plus `Architecture` and `AccessMatrix`). Updated by ABP-9; see [0007-local-hooks-and-single-ci-gate.md](0007-local-hooks-and-single-ci-gate.md).
 
 ## Context
 
@@ -36,8 +36,8 @@ Accepted, 2026-10-30. Implementation status: implemented (Pest installed, `tests
 | Rule | Detail |
 |---|---|
 | Framework | Pest 5 with pest-plugin-laravel |
-| Location | `app/Features/<Slice>/Tests/` for slice tests; `tests/Feature`, `tests/Unit` for cross-cutting tests |
-| Binding | `pest()->extend(Tests\TestCase::class)->use(RefreshDatabase::class)->in(...)` per slice test folder (planned) |
+| Location | `app/Features/<Slice>/Tests/Feature` and `Tests/Unit` for all unit and feature tests; root `tests/Architecture` and `tests/AccessMatrix` for cross-cutting suites. `tests/Feature` and `tests/Unit` no longer exist |
+| Binding | One glob in `tests/Pest.php`: `->in('AccessMatrix', '../app/Features/*/Tests/Feature')`; no per-slice edit |
 | Fakes | `Http::fake()` for PayPal, Anthropic and Telegram; laravel/ai fakes for models (once installed); `Queue::fake()`, `Notification::fake()`; deterministic only |
 | Datasets | Use Pest datasets for rule and threshold tables |
 | Database | SQLite `:memory:` (phpunit.xml) |
@@ -47,7 +47,7 @@ Accepted, 2026-10-30. Implementation status: implemented (Pest installed, `tests
 | Type | Consequence |
 |---|---|
 | Positive | Short, readable tests; datasets express the PRD tables directly |
-| Negative | Slice test folders must be added to both `phpunit.xml` and `tests/Pest.php` for each slice |
+| Negative | Each new slice must add a testsuite and a `<source><exclude>` entry to `phpunit.xml` (the Pest binding is a glob) |
 | Negative | Some package docs show PHPUnit examples; translate to Pest |
 
 ## Alternatives considered

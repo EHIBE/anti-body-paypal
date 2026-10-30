@@ -8,8 +8,10 @@ related:
   - ../architecture/filament-separation.md
   - testing-strategy.md
   - adding-a-slice.md
+  - commit-and-branch-rules.md
   - ../security/owasp-mapping.md
-source_of_truth: .ai/rules/*.md (path-scoped rules, win on conflict), CLAUDE.md and AGENTS.md project sections and Boost block, feature prompt sections 3 to 5
+  - ../decisions/0007-local-hooks-and-single-ci-gate.md
+source_of_truth: .ai/rules/*.md (path-scoped rules, win on conflict), CLAUDE.md and AGENTS.md project sections and Boost block, feature prompt sections 3 to 5, pint.json, rector.php, phpstan.neon, tests/Architecture/
 last_verified: 2026-10-30
 ---
 
@@ -20,6 +22,7 @@ last_verified: 2026-10-30
 > - Business logic lives only in `VerbNounAction::handle()` inside `app/Features/<Slice>/Actions/`.
 > - Money is integer minor units (`*_minor`), time is UTC, IDs are UUIDv7 (`HasUuids`) except framework tables, `agents` and `audit_logs`.
 > - No code comments except PHPDoc types and array shapes. Run `vendor/bin/pint --dirty --format agent` after PHP changes.
+> - Since ABP-9 the tooling enforces much of this: Larastan level max, Rector, Pint with `declare_strict_types`, and architecture tests (Actions and Data `final`, slice isolation). See section 6.
 > - Status: the conventions are in force now. Most of the code they govern is planned.
 
 ## 0. Where the rules live
@@ -79,6 +82,8 @@ New rules are added only through the Boost `record-rule` tool and only when the 
 | CV-34 | Filament UI schema lives in model traits (`getForm()`, `getTableSchema()`, `getFilters()`, `getInfolist()`) | [../architecture/filament-separation.md](../architecture/filament-separation.md) |
 | CV-35 | H1 to H10, S1 to S7 and thresholds live only in the Guard slice | [../architecture/guard-spec.md](../architecture/guard-spec.md) |
 | CV-36 | No new slice, base folder or dependency without approval | [../architecture/slice-catalog.md](../architecture/slice-catalog.md) |
+| CV-37 | Actions and Data classes are `final` (Data also `readonly`); concrete slice classes are `final`; an Action exposes exactly one public `handle()` and its name ends in `Action`. Enforced by `tests/Architecture/StructureTest.php` | [testing-strategy.md](testing-strategy.md#3-cross-cutting-suites-implemented) |
+| CV-38 | The `Models`, `Http`, `Policies`, `Providers`, `Listeners`, `Jobs`, `Mcp`, `Ai`, `Routes` and `Commands` namespaces of a slice are internal. Another slice reaches the slice only through its public namespaces (`Actions`, `Data`, `Enums`, `Events`, `Exceptions`, `Contracts`) along an edge declared in `tests/Architecture/SliceMap.php`. Enforced by `tests/Architecture/SliceIsolationTest.php` | [../architecture/slice-catalog.md](../architecture/slice-catalog.md) |
 
 ## 4. Data and money rules
 
@@ -140,7 +145,16 @@ The full mapping is in [../security/owasp-mapping.md](../security/owasp-mapping.
 
 | Tool | Command | Status |
 |---|---|---|
-| Pint | `vendor/bin/pint --dirty --format agent` | Implemented (laravel/pint 1.32.1, default preset, no `pint.json`) |
+| Pint | `vendor/bin/pint --dirty --format agent` (local); `composer lint:check` (CI form) | Implemented (laravel/pint 1.32.1, `pint.json`: Laravel preset plus `declare_strict_types`; the three applied starter migrations are excluded) |
+| Rector | `composer rector` (apply), `composer refactor:check` (dry run) | Implemented (rector/rector 2.8.3, `rector.php`, migrations and architecture fixtures skipped) |
+| Larastan | `composer types:check` | Implemented (larastan/larastan v3.13.2, level max, strict rules, no baseline, `phpstan.neon`) |
 | Pest | `php artisan test --compact` | Implemented (Pest 5.3.4) |
-| Larastan level 10 | `vendor/bin/phpstan analyse` | Planned, not installed, report as skipped |
-| Audits | `composer audit`, `npm audit` | Implemented |
+| Audits | `composer audit:check` (`composer audit` and `npm audit --audit-level=high`) | Implemented |
+| Whole gate | `composer ci:check` | Implemented; run by the pre-push hook and CI ([../decisions/0007-local-hooks-and-single-ci-gate.md](../decisions/0007-local-hooks-and-single-ci-gate.md)) |
+
+| Rule | Detail |
+|---|---|
+| PHPStan findings | Fix them in code. No baseline, no inline `@phpstan-ignore`. A config `ignoreErrors` entry needs an identifier, a path and a written reason |
+| Rector vs convention | No Rector rule fights a convention so far. If one does, add a skip with a reason in `rector.php` |
+| Starter files | `declare(strict_types=1)` is on every PHP file except the three applied starter migrations; do not edit applied migrations (CV-44) |
+| Hooks | `.husky/pre-commit` runs Rector and Pint on the project; never bypass the hooks ([commit-and-branch-rules.md](commit-and-branch-rules.md#6-enforcement-implemented-abp-9)) |

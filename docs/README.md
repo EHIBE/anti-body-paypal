@@ -18,7 +18,7 @@ last_verified: 2026-10-30
 > **TL;DR**
 > - Anti-Body is a payment gate between AI agents and a small business PayPal account. Agents propose vendor invoice payments. Only Anti-Body moves money. Outcomes are AUTO, HOLD, BLOCK.
 > - The PRD (`prd-anti-body-paypal.md`) is the product source of truth. Every other doc derives from the PRD or from the code.
-> - As of 2026-10-30 the repository is a Laravel 13.39.0 + Filament 5.11.0 skeleton. Almost every doc describes **planned** behavior. Each doc states its status in front matter.
+> - As of 2026-10-30 the repository is a Laravel 13.39.0 + Filament 5.11.0 skeleton with the ABP-9 quality and security tooling installed (Larastan, Rector, Pint, Husky hooks, architecture and access-matrix tests, GitHub Actions, security headers). Almost every doc describes **planned** behavior. Each doc states its status in front matter.
 > - AI agents: read this file, then `../CLAUDE.md` (or `../AGENTS.md`), then the doc for the slice in scope.
 
 ## 1. Source-of-truth hierarchy
@@ -82,8 +82,8 @@ Known drift between the PRD and the installed stack or architecture is tracked i
 | Product | [product/demo-script.md](product/demo-script.md) | 2:50 video script | planned |
 | Product | [product/roadmap.md](product/roadmap.md) | Build plan B1 to B9, P1 to P3, risks, roadmap | mixed |
 | Architecture | [architecture/overview.md](architecture/overview.md) | Components, stack, PRD drift | mixed |
-| Architecture | [architecture/vertical-slice-architecture.md](architecture/vertical-slice-architecture.md) | Slice layout and wiring | planned |
-| Architecture | [architecture/slice-catalog.md](architecture/slice-catalog.md) | 13 slices and dependencies | planned |
+| Architecture | [architecture/vertical-slice-architecture.md](architecture/vertical-slice-architecture.md) | Slice layout and wiring | mixed |
+| Architecture | [architecture/slice-catalog.md](architecture/slice-catalog.md) | 13 slices and dependencies | mixed |
 | Architecture | [architecture/filament-separation.md](architecture/filament-separation.md) | Filament resources and model traits | mixed |
 | Architecture | [architecture/request-lifecycles.md](architecture/request-lifecycles.md) | End-to-end flows | planned |
 | Architecture | [architecture/state-machines.md](architecture/state-machines.md) | Invoice and payment states | planned |
@@ -107,13 +107,13 @@ Known drift between the PRD and the installed stack or architecture is tracked i
 | Integrations | [integrations/telegram.md](integrations/telegram.md) | Telegram bot | planned |
 | Security | [security/threat-model.md](security/threat-model.md) | Threats and abuse cases | planned |
 | Security | [security/trust-boundaries.md](security/trust-boundaries.md) | Trust boundaries | planned |
-| Security | [security/owasp-mapping.md](security/owasp-mapping.md) | OWASP Top 10:2025 and LLM Top 10 | planned |
+| Security | [security/owasp-mapping.md](security/owasp-mapping.md) | OWASP Top 10:2025 and LLM Top 10 | mixed |
 | Security | [security/secrets.md](security/secrets.md) | Secret handling | mixed |
 | Security | [security/audit-hash-chain.md](security/audit-hash-chain.md) | Tamper-evident audit log | planned |
-| Development | [development/local-setup.md](development/local-setup.md) | Run locally | mixed |
+| Development | [development/local-setup.md](development/local-setup.md) | Run locally, tooling and Git hooks | mixed |
 | Development | [development/coding-conventions.md](development/coding-conventions.md) | Code rules | implemented rules |
-| Development | [development/testing-strategy.md](development/testing-strategy.md) | Pest tests | mixed |
-| Development | [development/adding-a-slice.md](development/adding-a-slice.md) | New slice how-to | planned |
+| Development | [development/testing-strategy.md](development/testing-strategy.md) | Pest tests, Larastan, Rector, CI jobs | mixed |
+| Development | [development/adding-a-slice.md](development/adding-a-slice.md) | New slice how-to | mixed |
 | Development | [development/adding-a-filament-resource.md](development/adding-a-filament-resource.md) | New resource how-to | planned |
 | Development | [development/commit-and-branch-rules.md](development/commit-and-branch-rules.md) | Git rules | implemented |
 | Development | [development/ai-agents-and-skills.md](development/ai-agents-and-skills.md) | Project agents and skills | implemented |
@@ -128,6 +128,7 @@ Known drift between the PRD and the installed stack or architecture is tracked i
 | Decisions | [decisions/0004-render-postgres.md](decisions/0004-render-postgres.md) | ADR 0004 | accepted |
 | Decisions | [decisions/0005-pest-over-phpunit.md](decisions/0005-pest-over-phpunit.md) | ADR 0005 | accepted |
 | Decisions | [decisions/0006-readonly-dtos-over-spatie-laravel-data.md](decisions/0006-readonly-dtos-over-spatie-laravel-data.md) | ADR 0006 | accepted |
+| Decisions | [decisions/0007-local-hooks-and-single-ci-gate.md](decisions/0007-local-hooks-and-single-ci-gate.md) | ADR 0007: Git hooks, one CI gate, security checks | accepted, implemented |
 
 ## 5. Stable ID schemes
 
@@ -139,7 +140,8 @@ IDs come from the PRD and are reused unchanged in every doc. See [glossary.md](g
 | `H1` to `H10` | Hard rules | PRD 9.1 |
 | `S1` to `S7` | Risk signals | PRD 9.2 |
 | `US-01` to `US-11` | User stories | PRD 7 |
-| `OQ-01` to `OQ-17` | Open questions (OQ-12 to OQ-15 and OQ-17 added by ABP-8; OQ-16 resolved and retired during ABP-8) | PRD 27, [product/roadmap.md](product/roadmap.md#open-questions) |
+| `OQ-01` to `OQ-18` | Open questions (OQ-12 to OQ-15 and OQ-17 added by ABP-8; OQ-16 resolved and retired during ABP-8; OQ-18 added by ABP-9: owner of `antibody:demo-reset`, see [architecture/slice-catalog.md](architecture/slice-catalog.md#2-summary)) | PRD 27, [product/roadmap.md](product/roadmap.md#open-questions) |
+| `BUG-01` | Known code bug: `App\Models\User` lacks `FilamentUser`, panel answers 403 outside `local` (added by ABP-9) | [development/testing-strategy.md](development/testing-strategy.md#11-known-issues), [security/owasp-mapping.md](security/owasp-mapping.md) |
 | `C1` to `C16` | Hackathon compliance items | PRD 5 |
 | `M1` to `M7` | Demo success criteria | PRD 4.4 |
 | `G1` to `G3`, `P1` to `P3` (goals) | Hackathon and product goals | PRD 4.1, 4.2 |

@@ -19,7 +19,7 @@ last_verified: 2026-10-30
 > - Planned hosting: Render web service `anti-body-paypal-web` (Starter, Docker, Singapore) + Render Postgres `anti-body-paypal-db` (basic-256mb, Singapore). $13/month, covered by the $50 hackathon credit for about 3.8 months.
 > - One container runs nginx, php-fpm, `queue:work` and `schedule:work` under supervisord. Pre-deploy: `php artisan migrate --force && php artisan optimize`.
 > - Production is the demo environment and uses sandbox PayPal only.
-> - Status: planned (B2, P2). No `Dockerfile`, `render.yaml` or CI workflow exists on 2026-10-30.
+> - Status: planned (B2, P2). No `Dockerfile` or `render.yaml` exists on 2026-10-30. The CI workflows exist (`.github/workflows/tests.yml`, `security.yml`, implemented in ABP-9); only the Render auto-deploy hookup is planned.
 
 ## 1. Services
 
@@ -70,7 +70,7 @@ Timeline: Option A from Nov 2 (free plan acceptable earlier during build), credi
 
 | Trigger | Action |
 |---|---|
-| Push to `main` with CI green | Render auto-deploy (PRD 22 step 7) |
+| Push to `main` with CI green | Render auto-deploy (PRD 22 step 7). CI jobs exist; the owner must protect `main` and require them ([../decisions/0007-local-hooks-and-single-ci-gate.md](../decisions/0007-local-hooks-and-single-ci-gate.md)). Production should also set `ANTIBODY_CSP_REPORT_ONLY` and `ANTIBODY_HSTS_MAX_AGE` ([configuration.md](configuration.md)) |
 | Nightly | Eval suite with `ANTHROPIC_API_KEY` secret (does not deploy) |
 
 ## 6. Environments

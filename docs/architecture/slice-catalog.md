@@ -2,30 +2,33 @@
 title: Slice Catalog
 purpose: List every planned slice with its responsibility, owned tables, planned units, entry points, dependencies, FR IDs and build block.
 audience: [developers, ai-agents]
-status: planned
+status: mixed
 related:
   - ./vertical-slice-architecture.md
+  - ../decisions/0007-local-hooks-and-single-ci-gate.md
   - ./data-model.md
   - ./guard-spec.md
   - ./request-lifecycles.md
   - ../product/user-stories.md
   - ../product/roadmap.md
-source_of_truth: This catalog for slice boundaries and unit names (decision D5 of ABP-8). docs/prd-anti-body-paypal.md sections 8 and 14 for requirements and tables.
+source_of_truth: This catalog for slice boundaries and unit names (decision D5 of ABP-8); tests/Architecture/SliceMap.php for the enforced dependency edges (the arrows below must match it). docs/prd-anti-body-paypal.md sections 8 and 14 for requirements and tables.
 last_verified: 2026-10-30
 ---
 
 # Slice Catalog
 
 > **TL;DR**
-> - 13 slices are planned. No slice exists yet. Creating a slice outside this list needs owner approval.
+> - 13 slices are planned. Only Shared exists in code (security headers middleware, `RequiresAbility` attribute, tests). Creating a slice outside this list needs owner approval.
+> - Dependency edges are enforced by `tests/Architecture/SliceIsolationTest.php` from `tests/Architecture/SliceMap.php`. Internal namespaces (`Http`, `Models`, `Policies`, `Providers`, `Listeners`, `Jobs`, `Mcp`, `Ai`, `Routes`, `Commands`) are never used across slices.
 > - The PRD "Gate service" is split into Actions: Invoice `ReceiveInvoiceAction`, Extraction `ExtractInvoiceAction`, Guard `EvaluateInvoiceAction`, AgentGateway `ProposePaymentAction`.
 > - The Guard slice is the only home of H1 to H10, S1 to S7 and the decision thresholds.
 > - Only the Payment slice talks to the PayPal Payouts API. Only the Audit slice writes `audit_logs`.
-> - All unit names below are planned names. The code becomes authoritative once built.
+> - All unit names below are planned names unless marked implemented. The code becomes authoritative once built.
+> - Open decision OQ-18: which slice owns `antibody:demo-reset`, since Shared may not depend on any other slice (section 2).
 
 ## 1. Dependency graph
 
-An arrow means "calls Actions of" or "reads models of". Every slice may call Audit and Shared; those edges are omitted except where they matter.
+An arrow means "calls the public namespaces (Actions, Data, Enums, Events, Exceptions, Contracts) of". Models are internal to a slice: cross-slice access goes through Actions and Data, never through another slice's models. Every slice may use Shared; Shared depends on no slice. Every slice except Shared and Audit has an Audit edge in `tests/Architecture/SliceMap.php`; the graph draws only some of them.
 
 ```mermaid
 flowchart TD
@@ -64,7 +67,7 @@ flowchart TD
 
 | Slice | Owns tables | Build block | FR IDs | Status |
 |---|---|---|---|---|
-| Shared | none | B2 | cross-cutting | Planned |
+| Shared | none | B2 | cross-cutting | Partly implemented (ABP-9): `SecurityHeaders`, `RequiresAbility`, tests |
 | Vendor | `vendors` | B3, B7 | FR-01, FR-02, FR-03 | Planned |
 | Invoice | `invoices` | B3, B7 | FR-04, FR-05 (storage half), FR-06, FR-24 (invoice), FR-45 | Planned |
 | Extraction | none (writes extracted fields on `invoices`) | B4 | FR-08, FR-09, FR-10 | Planned |
@@ -78,7 +81,7 @@ flowchart TD
 | Policy | `policies` | B5, B7 | FR-17, US-02 | Planned |
 | Baseline | `vendor_stats`, `paypal_transactions` | B9 | FR-37, FR-38, FR-39, FR-43 | Planned |
 
-Seed data (FR-40 to FR-42) lives in `database/seeders/` and `storage/demo/`, with `antibody:demo-reset` owned by the Shared slice `Commands/` (it resets several slices, so it is cross-cutting) (see [../operations/demo-reset.md](../operations/demo-reset.md)). Dashboard widgets (FR-44) live in `app/Filament/Widgets/` and read through slice query Actions.
+Seed data (FR-40 to FR-42) lives in `database/seeders/` and `storage/demo/`, with the owner of `antibody:demo-reset` still open (OQ-18, decide in B9; see [../operations/demo-reset.md](../operations/demo-reset.md)). The command resets several slices, which suggests Shared, but Shared may not depend on any other slice under the architecture test (`SliceMap`), so it cannot call their Actions. Options for B9: a dedicated approved slice, a command in a slice that already depends on the others, or an approved exception in `SliceMap`. Until decided, no slice row lists the command. Dashboard widgets (FR-44) live in `app/Filament/Widgets/` and read through slice query Actions.
 
 ## 3. Slices in detail
 
@@ -87,7 +90,8 @@ Seed data (FR-40 to FR-42) lives in `database/seeders/` and `storage/demo/`, wit
 | Field | Value |
 |---|---|
 | Responsibility | Cross-cutting code only. Nothing domain-specific |
-| Planned units | `Http/Controllers/Controller.php` (base), `Http/Middleware/SetSecurityHeaders.php`, `Providers/SharedServiceProvider.php` (rate limiters `mcp`, `invoice-upload`, `telegram-callback`), `Enums/ActorType.php` (`Owner`, `Agent`, `System`, `PayPal`, `Telegram`), `Data/Money.php` (integer minor units + currency), `Support/IsoWeek.php` (UTC ISO week bounds) |
+| Implemented units | `Http/Middleware/SecurityHeaders.php` (`final readonly`, appended as global middleware in `bootstrap/app.php`; values in the file and `config/antibody.php`), `Authorization/RequiresAbility.php` (attribute read by the access matrix scanner in `tests/AccessMatrix`), `Tests/Feature` and `Tests/Unit` (runtime security tests and example tests) |
+| Planned units | `Http/Controllers/Controller.php` (base; today the base controller is `app/Http/Controllers/Controller.php`), `Providers/SharedServiceProvider.php` (rate limiters `mcp`, `invoice-upload`, `telegram-callback`), `Enums/ActorType.php` (`Owner`, `Agent`, `System`, `PayPal`, `Telegram`), `Data/Money.php` (integer minor units + currency), `Support/IsoWeek.php` (UTC ISO week bounds) |
 | Entry points | none |
 | Depends on | nothing |
 | Notes | Money and time helpers are described in the `money-and-time-handling` skill |
@@ -114,7 +118,6 @@ Seed data (FR-40 to FR-42) lives in `database/seeders/` and `storage/demo/`, wit
 | Owns | `invoices` |
 | Planned Actions | `ReceiveInvoiceAction`, `TransitionInvoiceStatusAction` (enforces PRD 14.3, throws `IllegalInvoiceTransitionException`), `LockApprovedAmountAction`, `ExpireHeldInvoicesAction` (72 h HOLD expiry), `ListPendingInvoicesAction`, `GetInvoiceSummaryAction` |
 | Jobs | `ExtractInvoiceJob` (delegates to Extraction) |
-| Commands | `DemoResetCommand` (`antibody:demo-reset`) |
 | Enums | `InvoiceStatus`, `InvoiceSource` (`DashboardUpload`, `McpSubmit`, `Seed`) |
 | Routes | `Routes/web.php`: signed route for the owner-only PDF preview |
 | Policies | `InvoicePolicy` |

@@ -20,7 +20,7 @@ last_verified: 2026-10-30
 > - Anti-Body is one Laravel 13 application: a Filament 5 owner dashboard, a guard pipeline (hard rules, risk score, decision), a PayPal Payouts executor, webhook handlers, a Telegram approval bot and an MCP server for external agents.
 > - Agents can only propose payments. Only Anti-Body moves money, and only through PayPal Payouts with idempotency keys.
 > - Business logic lives in vertical slices under `app/Features/<Slice>/` (planned). Filament UI lives separately in `app/Filament/`.
-> - **Implemented today:** Laravel 13.39.0 skeleton, Filament 5.11.0 panel `admin` at `/admin`, Pest 5.3.4, SQLite. **Everything else on this page is planned.**
+> - **Implemented today:** Laravel 13.39.0 skeleton, Filament 5.11.0 panel `admin` at `/admin`, Pest 5.3.4, SQLite, and the ABP-9 quality and security tooling (Larastan, Rector, Husky hooks, GitHub Actions, security headers, architecture and access-matrix tests). **Everything else on this page is planned.**
 > - One Render web service (Docker) runs web, queue worker and scheduler. One Render Postgres database holds all state (planned).
 
 ## 1. Implementation status
@@ -30,15 +30,17 @@ last_verified: 2026-10-30
 | Laravel 13 skeleton, default migrations (users, cache, jobs) | Implemented | `bootstrap/app.php`, `database/migrations/` |
 | Filament panel `admin` at `/admin` with login | Implemented | `app/Providers/Filament/AdminPanelProvider.php` |
 | JSON error rendering for `api/*` or `expectsJson()` | Implemented | `bootstrap/app.php` `withExceptions()` |
-| Pest test runner with `tests/Feature` bound to `Tests\TestCase` | Implemented | `tests/Pest.php`, `phpunit.xml` |
-| Vertical slices in `app/Features/` | Planned | Directory does not exist yet |
+| Pest test runner with `Tests\TestCase` and `RefreshDatabase` bound to `AccessMatrix` and `app/Features/*/Tests/Feature` | Implemented | `tests/Pest.php`, `phpunit.xml` |
+| Security headers middleware (global), guest redirects, architecture and access-matrix tests | Implemented (ABP-9) | `app/Features/Shared/Http/Middleware/SecurityHeaders.php`, `bootstrap/app.php`, `tests/Architecture/`, `tests/AccessMatrix/` |
+| Git hooks, Larastan, Rector, GitHub Actions (tests, security) | Implemented (ABP-9) | `.husky/`, `phpstan.neon`, `rector.php`, `.github/workflows/`, [../decisions/0007-local-hooks-and-single-ci-gate.md](../decisions/0007-local-hooks-and-single-ci-gate.md) |
+| Vertical slices in `app/Features/` | Partly implemented | Only `Shared` exists; the other 12 slices are planned |
 | Domain tables (vendors, invoices, payments, ...) | Planned | See [data-model.md](./data-model.md) |
 | Guard pipeline H1 to H10, S1 to S7 | Planned | See [guard-spec.md](./guard-spec.md) |
 | PayPal Payouts, webhooks, reconcile | Planned | See [../integrations/paypal-payouts.md](../integrations/paypal-payouts.md) |
 | AI extractor, analyst, built-in AP agent | Planned (laravel/ai not installed) | See [../ai/extractor.md](../ai/extractor.md) |
 | MCP server `/mcp/anti-body` | Planned (laravel/mcp only transitive, laravel/sanctum not installed) | See [../api/mcp-tools.md](../api/mcp-tools.md) |
 | Telegram approvals | Planned (Telegram channel package not installed) | See [../integrations/telegram.md](../integrations/telegram.md) |
-| Docker image, Render deploy, CI | Planned | No `Dockerfile`, `render.yaml` or workflow in the repo |
+| Docker image, Render deploy | Planned | No `Dockerfile` or `render.yaml` in the repo |
 
 ## 2. Components
 
@@ -125,14 +127,16 @@ Installed versions come from `composer show --direct` and `package.json` on 2026
 | laravel/mcp | v1.1.1 | 1.1.2, transitive via Boost only | Planned as a direct dependency |
 | laravel/ai | v1.3.0 | not installed | Planned, needs approval |
 | laravel/sanctum | 4.x | not installed | Planned, needs approval |
-| larastan/larastan | 3.9.x, level 10 | not installed | Planned, needs approval |
+| larastan/larastan | 3.9.x, level 10 | v3.13.2 (dev, level max, with phpstan-strict-rules 2.1.0) | Implemented (ABP-9) |
+| rector/rector | not in PRD | 2.8.3 (dev) | Implemented (ABP-9) |
+| husky (npm) | not in PRD | 9.1.7 (dev) | Implemented (ABP-9) |
 | laravel-notification-channels/telegram | latest | not installed | Planned, needs approval |
 | Tailwind CSS | not specified | 4 | Implemented |
 | Vite | not specified | 8 | Implemented |
 | Database | Render Postgres basic-256mb | SQLite (local), SQLite `:memory:` (tests) | Postgres planned |
 | Queue, cache, session | database drivers | database drivers (`.env.example`) | Implemented as config |
 | Hosting | Render web Starter (Docker) | none | Planned |
-| CI | GitHub Actions | none | Planned |
+| CI | GitHub Actions | `tests.yml` (jobs `ci`, `postgres`) and `security.yml` | Implemented (ABP-9); render auto-deploy planned |
 | Extraction model | `claude-haiku-5-5` | n/a | UNVERIFIED, see OQ-12 in [../product/roadmap.md](../product/roadmap.md) |
 | Analyst model | `claude-sonnet-5-5` | n/a | Model ID confirmed, integration planned |
 

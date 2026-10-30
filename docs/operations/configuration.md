@@ -7,16 +7,17 @@ related:
   - deployment-render.md
   - ../security/secrets.md
   - ../development/local-setup.md
-source_of_truth: .env.example (implemented keys), docs/prd-anti-body-paypal.md section 24.4 (planned keys)
+  - ../decisions/0007-local-hooks-and-single-ci-gate.md
+source_of_truth: .env.example and config/antibody.php (implemented keys), .github/workflows/tests.yml (CI-only variable), docs/prd-anti-body-paypal.md section 24.4 (planned keys)
 last_verified: 2026-10-30
 ---
 
 # Configuration and Environment Variables
 
 > **TL;DR**
-> - Implemented keys are the Laravel defaults in `.env.example` plus `APP_NAME=anti-body-paypal`.
+> - Implemented keys are the Laravel defaults in `.env.example`, `APP_NAME=anti-body-paypal`, and two security keys in `config/antibody.php`: `ANTIBODY_CSP_REPORT_ONLY` and `ANTIBODY_HSTS_MAX_AGE`. `ANTIBODY_EXPECTED_DB_DRIVER` is a CI-only test switch.
 > - Planned keys (PRD 24.4) cover PayPal, Anthropic, Telegram, the token HMAC key and demo owner. They are added to `.env.example` with placeholders by the slice that first reads them.
-> - Application code reads config through `config()` only. `env()` appears only inside `config/*.php`. Planned project config file: `config/antibody.php`; third-party keys in `config/services.php`.
+> - Application code reads config through `config()` only. `env()` appears only inside `config/*.php`. Project config file: `config/antibody.php` (exists with the `security` group; other groups are planned); third-party keys in `config/services.php` (planned).
 > - Secrets live only in local `.env` (git-ignored) and Render env vars. `.env.example` holds names and placeholders only.
 
 ## 1. Application and framework (implemented)
@@ -45,7 +46,26 @@ last_verified: 2026-10-30
 | `AWS_*` | Unused defaults | empty | unused | Yes | `filesystems.disks.s3.*` |
 | `VITE_APP_NAME` | Frontend app name | `${APP_NAME}` | same | No | n/a |
 
-## 2. Anti-Body keys (planned, PRD 24.4)
+## 2. Anti-Body security keys (implemented, ABP-9)
+
+Read in `config/antibody.php` (the only `env()` call site) and present in `.env.example`.
+
+| Variable | Purpose | `.env.example` value | Production value | Secret | Config key | Read by |
+|---|---|---|---|---|---|---|
+| `ANTIBODY_CSP_REPORT_ONLY` | `true` sends `Content-Security-Policy-Report-Only`; `false` enforces `Content-Security-Policy` | `true` | Recommendation, not a deployed value: `true` (report-only) until the policies are observed clean in production, then `false`; owner decision | No | `antibody.security.csp_report_only` | `app/Features/Shared/Http/Middleware/SecurityHeaders.php` |
+| `ANTIBODY_HSTS_MAX_AGE` | `max-age` seconds of `Strict-Transport-Security`, sent only on secure requests (`includeSubDomains` added by the middleware) | `15552000` | `15552000` | No | `antibody.security.hsts_max_age` | same |
+
+The header values and the three CSP policies (machine, panel, page) live only in `SecurityHeaders.php`; do not copy them into docs.
+
+### 2.1 CI-only variable
+
+| Variable | Purpose | Where set | Not in `.env.example` because |
+|---|---|---|---|
+| `ANTIBODY_EXPECTED_DB_DRIVER` | `app/Features/Shared/Tests/Feature/DatabaseDriverTest.php` fails if the connection driver differs; the test is skipped when the variable is unset or empty | `postgres` job in `.github/workflows/tests.yml` (value `pgsql`, together with `DB_CONNECTION=pgsql`) | It is a test-run switch, not application configuration |
+
+The CI Postgres service uses a throwaway user, password and database name declared in `tests.yml`. They are not secrets and never reach any other environment.
+
+## 3. Anti-Body keys (planned, PRD 24.4)
 
 | Variable | Purpose | Placeholder for `.env.example` | Secret | Planned config key | Read by slice |
 |---|---|---|---|---|---|
@@ -63,7 +83,7 @@ last_verified: 2026-10-30
 | `DEMO_OWNER_EMAIL` | Seeded owner login | `owner@example.test` | No | `antibody.demo.owner_email` | Shared seeders |
 | `DEMO_OWNER_PASSWORD` | Seeded owner password | `change-me` | Yes | `antibody.demo.owner_password` | Shared seeders |
 
-## 3. Planned non-env config values (`config/antibody.php`)
+## 4. Planned non-env config values (`config/antibody.php`)
 
 | Key | Default | Source |
 |---|---|---|
@@ -82,11 +102,11 @@ last_verified: 2026-10-30
 
 Guard policy values (`auto_ceiling_minor` 50000, `max_per_payment_minor` 150000, `weekly_budget_minor` 300000, `allowed_currencies` `["USD"]`, `paused`, `hold_expiry_hours` 72) live in the `policies` table row, not in env. The absolute auto ceiling $500.00 is a Guard slice constant. See [../architecture/guard-spec.md](../architecture/guard-spec.md).
 
-## 4. Rules
+## 5. Rules
 
 | # | Rule |
 |---|---|
-| 1 | New keys go into `.env.example` with placeholders only, in the same commit as the code that reads them |
+| 1 | New keys go into `.env.example` with placeholders only, in the same commit as the code that reads them. The pre-commit hook and gitleaks block non-placeholder values for the known secret variables (placeholders start with `your-`, `change-me` or `generate-`; see `.gitleaks.toml`) |
 | 2 | Read keys through `config()`, never `env()` outside `config/` |
 | 3 | `php artisan config:show antibody` to inspect values locally (never paste output containing secrets) |
 | 4 | Production runs `php artisan optimize` (config cache), so `env()` outside config returns null |

@@ -1,6 +1,6 @@
 ---
 title: Build plan, roadmap, risks and open questions
-purpose: Track the 14-day build plan (B1 to B9, P1 to P3) with current status, the cut order, risks R1 to R11, open questions OQ-01 to OQ-17, the post-hackathon roadmap, the business model and the validation plan.
+purpose: Track the 14-day build plan (B1 to B9, P1 to P3) with current status, the cut order, risks R1 to R11, open questions OQ-01 to OQ-18, the post-hackathon roadmap, the business model and the validation plan.
 audience: [judges, owner, developers, ai-agents]
 status: mixed
 related:
@@ -18,7 +18,7 @@ last_verified: 2026-10-30
 > - Build window Sat Oct 24 to Fri Nov 6, 2026: 14 days x 4 h = 56 h (44 build + 12 polish). Buffer Nov 7 to Nov 12. Target submit Tue Nov 10 PHT.
 > - Status on 2026-10-30 (Day 7): repository is a Laravel 13.39.0 + Filament 5.11.0 skeleton plus ABP-8 docs, agents and skills. Every build block B1 to B9 and polish block P1 to P3 is pending. The B1 PayPal spike result is not recorded in the repository.
 > - The plan expected B1 to B5 done and B6 started by Day 7, so the build is about 6 days (24 h) behind plan. R6 trigger ("2 days behind plan") has fired: apply the cut order FR-32, FR-36, FR-37, FR-43, FR-17.
-> - Open questions: OQ-01 to OQ-11 from the PRD, OQ-12 to OQ-15 and OQ-17 added by ABP-8 (OQ-16 raised and resolved during ABP-8).
+> - Open questions: OQ-01 to OQ-11 from the PRD, OQ-12 to OQ-15 and OQ-17 added by ABP-8 (OQ-16 raised and resolved during ABP-8), OQ-18 added by ABP-9.
 
 ## 1. Allocation (PRD 21)
 
@@ -40,7 +40,7 @@ last_verified: 2026-10-30
 | **Polish total** | | **12** | |
 | **Grand total** | | **56** | |
 
-Dependency approvals needed before blocks can start: laravel/sanctum (B6), laravel/ai (B4, B5, B6), laravel/mcp as a direct dependency (B6), laravel-notification-channels/telegram (B8), larastan/larastan (CI, B2).
+Dependency approvals needed before blocks can start: laravel/sanctum (B6), laravel/ai (B4, B5, B6), laravel/mcp as a direct dependency (B6), laravel-notification-channels/telegram (B8). larastan/larastan, phpstan-strict-rules, rector/rector and husky were approved and installed by ABP-9 (dev only).
 
 ## 2. Day by day (PRD 21)
 
@@ -67,7 +67,7 @@ Dependency approvals needed before blocks can start: laravel/sanctum (B6), larav
 | Order | Item | Blocks | Ticket |
 |---|---|---|---|
 | 1 | Run the PayPal spike and record results (Payouts enabled, duplicate `sender_batch_id`, webhook verify) | B1 | to assign |
-| 2 | Approve dependencies: sanctum, ai, mcp, telegram channel, larastan | B2 to B8 | to assign |
+| 2 | Approve dependencies: sanctum, ai, mcp, telegram channel (larastan approved in ABP-9) | B2 to B8 | to assign |
 | 3 | Shared wiring: slice provider discovery, slice route loading, slice testsuites, security headers middleware | B2 | to assign |
 | 4 | Data model migrations, enums, state machines, Audit slice | B3 | to assign |
 | 5 | Payment executor, PayPal client, webhook handler, reconcile job | B3 | to assign |
@@ -113,7 +113,7 @@ Fallback for R1 (PRD 16.5): if Payouts are permanently unavailable, switch money
 |---|---|---|---|---|
 | OQ-01 | "Anti-Body" is also the thesis name with co-researchers. Confirm no objection and that no thesis code or assets are reused (hackathon requires sole ownership) | Use name only, no thesis code | PRD 27 | open |
 | OQ-02 | Does the PH-registered developer account get Payouts in sandbox without a support ticket | Find out Day 1 | PRD 27 | open (spike not recorded) |
-| OQ-03 | Exact patch versions for Livewire 4, Pest 4, Larastan 3.9, Pint, Sanctum, Telegram channel | Lock on Day 2 with `composer show` | PRD 27 | partly answered: Pest 5.3.4, pest-plugin-laravel 5.0.1, Pint 1.32.1, Livewire 4 via Filament 5.11.0. Larastan, Sanctum, Telegram channel not installed |
+| OQ-03 | Exact patch versions for Livewire 4, Pest 4, Larastan 3.9, Pint, Sanctum, Telegram channel | Lock on Day 2 with `composer show` | PRD 27 | partly answered: Pest 5.3.4, pest-plugin-laravel 5.0.1, Pint 1.32.1, Livewire 4 via Filament 5.11.0. Larastan v3.13.2 installed by ABP-9. Sanctum, Telegram channel not installed |
 | OQ-04 | Official PHP 8.5 Docker image tag and extensions needed (pdo_pgsql, intl, gd optional) | Confirm Day 2 | PRD 27 | open |
 | OQ-05 | Telegram webhook secret header name and callback flow | Confirm in Telegram Bot API docs Day 10 | PRD 27 | open |
 | OQ-06 | Filament v5 multi-factor auth config | Confirm Day 9, otherwise strong password only | PRD 27 | open |
@@ -127,6 +127,7 @@ Fallback for R1 (PRD 16.5): if Payouts are permanently unavailable, switch money
 | OQ-14 | Which timezone defines the H5 ISO week (owner is in PHT) | UTC ISO week | ABP-8 | open |
 | OQ-15 | Telegram approval token expires in 15 min while HOLD lives 72 h. How does the owner approve from Telegram after expiry | After token expiry, approval is dashboard-only | ABP-8 | open |
 | OQ-16 | Boost `record-rule` tool unavailable during ABP-8 | n/a | ABP-8 | resolved 2026-10-30: Boost reconnected, `.ai/rules` created (index [../../.ai/rules/index.md](../../.ai/rules/index.md)) |
+| OQ-18 | Owner of `antibody:demo-reset`; Shared may not depend on any slice under the ABP-9 `SliceIsolationTest`; decide in B9. See [../architecture/slice-catalog.md](../architecture/slice-catalog.md#2-summary) | None; no slice lists the command until decided | ABP-9 | open |
 | OQ-17 | Confirm the canonical JSON definition used by the audit hash chain | Recursively key-sorted JSON with `JSON_UNESCAPED_SLASHES` and `JSON_UNESCAPED_UNICODE`, over actor_type, actor_id, action, subject_type, subject_id, data, prev_hash, created_at. See [../security/audit-hash-chain.md](../security/audit-hash-chain.md) | ABP-8 | open |
 
 ## 7. Post-hackathon roadmap (PRD 26, ordered by value)

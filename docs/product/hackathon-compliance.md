@@ -48,13 +48,13 @@ PRD paths `app/Domain/*`, `app/Ai/*` and `app/Mcp/*` map to vertical slices (see
 
 | Criterion (20% each) | What judges look for | Features that earn it | Video scene | Target score |
 |---|---|---|---|---|
-| Technological Implementation (1st tie-break) | Thorough, non-trivial PayPal + AI use | Payouts with idempotency, verified webhooks, state machine, Transaction Search baseline, MCP server, isolated extractor and scorer, Pest + Larastan level 10 | 0:15, 0:50, 1:40 | 9 |
+| Technological Implementation (1st tie-break) | Thorough, non-trivial PayPal + AI use | Payouts with idempotency, verified webhooks, state machine, Transaction Search baseline, MCP server, isolated extractor and scorer, Pest + Larastan level max | 0:15, 0:50, 1:40 | 9 |
 | Design | Complete, coherent product | Filament dashboard, decision cards with reasons, Telegram approval, empty and error states | 0:15, 2:10 | 8 |
 | Potential Impact | Specific problem, real audience, solved on screen | Persona, AP fraud stats, blocked impersonation with money saved counter | 0:00, 0:50 | 8 |
 | Innovation | Novel vs existing concepts | Agent-proof gate outside the agent, injection isolation, monotonic scoring, any-agent MCP | 0:50, 2:40 | 9 |
 | Presentation | End-to-end demo, clear who and why | Tight 2:50 script, one villain, one counter | Whole video | 9 |
 
-Larastan is not installed on 2026-10-30 (needs approval). The Technological Implementation claim "Larastan level 10" stays planned until Larastan is installed and passes.
+Larastan v3.13.2 is installed (ABP-9) and runs at level max with strict rules in `composer ci:check` and CI (`phpstan.neon`). The claim is therefore "Larastan level max", not "level 10". Treat it as shown only while the CI `ci` job is green.
 
 ## 3. Hackathon goals (PRD 4.1)
 
