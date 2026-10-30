@@ -28,3 +28,20 @@ it('reports a reserved alias in double quoted and backtick quoted SQL', function
     expect(RawSqlAliases::inSource('$sql = "select max(id) as `order` from invoices";'))
         ->toBe(['line 1 aliases a column to the Postgres reserved word "order"']);
 });
+
+it('accepts a reserved word alias that is double quoted, which is the Postgres remedy', function (string $source): void {
+    expect(RawSqlAliases::inSource($source))->toBe([]);
+})->with([
+    'single quoted php string' => ["->selectRaw('max(id) as \"order\" from invoices')"],
+    'select with from' => ["->selectRaw('count(*) as \"user\"')"],
+]);
+
+it('treats a backtick quoted alias as unquoted because Postgres does not accept backticks', function (): void {
+    expect(RawSqlAliases::inSource("->selectRaw('max(id) as `group` from invoices')"))
+        ->toBe(['line 1 aliases a column to the Postgres reserved word "group"']);
+});
+
+it('still reports an unquoted reserved word alias beside a double quoted safe one', function (): void {
+    expect(RawSqlAliases::inSource("->selectRaw('max(id) as \"total\", count(*) as order from invoices')"))
+        ->toBe(['line 1 aliases a column to the Postgres reserved word "order"']);
+});

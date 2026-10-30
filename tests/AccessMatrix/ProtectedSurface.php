@@ -7,7 +7,10 @@ namespace Tests\AccessMatrix;
 use App\Features\Shared\Authorization\RequiresAbility;
 use FilesystemIterator;
 use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Auth\Middleware\AuthenticateWithBasicAuth;
+use Illuminate\Auth\Middleware\Authorize;
 use Illuminate\Routing\Route;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -16,9 +19,13 @@ use SplFileInfo;
 
 final class ProtectedSurface
 {
+    private const array AUTH_MIDDLEWARE_CLASSES = [Authenticate::class, AuthenticateWithBasicAuth::class, Authorize::class];
+
     private const array AUTH_MIDDLEWARE_PREFIXES = ['auth', 'can:', 'abilities:', 'ability:'];
 
     private const array PANEL_ROUTE_PREFIXES = ['filament.', 'livewire.', 'default-livewire.'];
+
+    private const array PANEL_URI_PATTERNS = ['#^(admin|filament)(/|$)#', '#^livewire-[0-9a-f]+(/|$)#'];
 
     /**
      * @return list<string>
@@ -73,7 +80,29 @@ final class ProtectedSurface
         foreach (self::authenticatedRoutes() as $route) {
             $key = self::keyFor($route);
 
-            if (self::isPanelRoute($key) || in_array($key, AccessMatrix::openRoutes(), true)) {
+            if (self::isPanelRoute($route) || in_array($key, AccessMatrix::openRoutes(), true)) {
+                continue;
+            }
+
+            $keys[] = $key;
+        }
+
+        sort($keys);
+
+        return array_values(array_unique($keys));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function unprotectedRouteKeys(): array
+    {
+        $keys = [];
+
+        foreach (RouteFacade::getRoutes()->getRoutes() as $route) {
+            $key = self::keyFor($route);
+
+            if (self::requiresAuthentication($route) || self::isPanelRoute($route) || in_array($key, AccessMatrix::openRoutes(), true)) {
                 continue;
             }
 
@@ -102,28 +131,31 @@ final class ProtectedSurface
 
     private static function requiresAuthentication(Route $route): bool
     {
-        foreach ($route->gatherMiddleware() as $middleware) {
+        foreach (resolve(Router::class)->gatherRouteMiddleware($route) as $middleware) {
             if (! is_string($middleware)) {
                 continue;
             }
 
-            if (is_a($middleware, Authenticate::class, true)) {
+            $class = explode(':', $middleware, 2)[0];
+
+            if (array_any(self::AUTH_MIDDLEWARE_CLASSES, static fn (string $auth): bool => is_a($class, $auth, true))) {
                 return true;
             }
 
-            foreach (self::AUTH_MIDDLEWARE_PREFIXES as $prefix) {
-                if (str_starts_with($middleware, $prefix)) {
-                    return true;
-                }
+            if (array_any(self::AUTH_MIDDLEWARE_PREFIXES, static fn (string $prefix): bool => str_starts_with($middleware, $prefix))) {
+                return true;
             }
         }
 
         return false;
     }
 
-    private static function isPanelRoute(string $key): bool
+    private static function isPanelRoute(Route $route): bool
     {
-        return array_any(self::PANEL_ROUTE_PREFIXES, fn (string $prefix): bool => str_starts_with($key, $prefix));
+        $name = $route->getName() ?? '';
+
+        return array_any(self::PANEL_ROUTE_PREFIXES, static fn (string $prefix): bool => str_starts_with($name, $prefix))
+            || array_any(self::PANEL_URI_PATTERNS, static fn (string $pattern): bool => preg_match($pattern, $route->uri()) === 1);
     }
 
     /**

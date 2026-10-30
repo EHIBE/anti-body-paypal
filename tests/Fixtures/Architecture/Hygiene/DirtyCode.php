@@ -34,6 +34,15 @@ final class DirtyCode
         $query->havingRaw('1');
         Model::unguard();
         Model::unguarded(fn (): bool => true);
+        $query->orWhereRaw('1 = 1');
+        $query->orHavingRaw('1');
+        $query->groupByRaw('1');
+        $query->fromRaw('t');
+        $query->WHERERAW('1 = 1');
+        DB::connection('other')->statement('select 1');
+        DB::connection()->unprepared('select 1');
+        $row = DB::connection('x')->raw('1');
+        $environment = getenv('APP_ENV');
 
         return [$mode, $output, $process, $pipe, $value, $listing];
     }

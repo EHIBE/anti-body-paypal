@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Architecture;
 
+use FilesystemIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use ReflectionClass;
 use ReflectionEnum;
 use ReflectionMethod;
 use ReflectionNamedType;
+use SplFileInfo;
 
 final class ClassRules
 {
@@ -123,6 +127,18 @@ final class ClassRules
     }
 
     /**
+     * @param  list<string>  $files
+     * @return list<string>
+     */
+    public static function unresolvedFiles(array $files): array
+    {
+        return array_map(
+            static fn (string $file): string => "{$file} does not declare the class its path implies",
+            $files,
+        );
+    }
+
+    /**
      * @return list<string>
      */
     public static function horizontalFolders(string $appPath): array
@@ -184,8 +200,16 @@ final class ClassRules
             return [];
         }
 
-        $files = glob($path.'/*.php');
+        $files = [];
 
-        return $files === false ? [] : array_map(basename(...), $files);
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS)) as $file) {
+            if ($file instanceof SplFileInfo && $file->getExtension() === 'php') {
+                $files[] = str_replace('\\', '/', substr($file->getPathname(), strlen($path) + 1));
+            }
+        }
+
+        sort($files);
+
+        return $files;
     }
 }

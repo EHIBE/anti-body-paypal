@@ -15,7 +15,13 @@ final class SliceMap
         'Webhook', 'Telegram', 'AgentGateway', 'Audit', 'Policy', 'Baseline',
     ];
 
-    public const array INTERNAL_NAMESPACES = ['Http', 'Models', 'Policies', 'Providers', 'Listeners', 'Jobs', 'Mcp', 'Ai', 'Routes', 'Commands'];
+    public const array INTERNAL_NAMESPACES = [
+        'Http', 'Models', 'Policies', 'Providers', 'Listeners', 'Jobs', 'Mcp', 'Ai', 'Routes', 'Commands',
+        'Notifications', 'Support', 'Filament', 'Tests', 'Console', 'Queries', 'Mail', 'Rules', 'Casts',
+        'Observers', 'Scopes', 'Livewire', 'View', 'Middleware', 'Authorization', 'Services', 'Repositories',
+        'Concerns', 'Traits', 'Helpers', 'Pipelines', 'Resources', 'Requests', 'Views', 'Database', 'Components',
+        'Handlers', 'Channels', 'Broadcasting', 'Mixins', 'Macros', 'Facades',
+    ];
 
     public const array PUBLIC_NAMESPACES = ['Actions', 'Data', 'Enums', 'Events', 'Exceptions', 'Contracts'];
 
@@ -34,6 +40,28 @@ final class SliceMap
         'Policy' => ['Audit'],
         'Baseline' => ['Vendor', 'Payment', 'Audit'],
     ];
+
+    /**
+     * @param  list<string>|null  $known
+     * @return list<string>
+     */
+    public static function unclassifiedFolders(?string $root = null, ?array $known = null): array
+    {
+        $root ??= dirname(__DIR__, 2).'/app/Features';
+        $known ??= [...self::PUBLIC_NAMESPACES, ...self::INTERNAL_NAMESPACES];
+        $folders = glob($root.'/*/*', GLOB_ONLYDIR);
+        $unclassified = [];
+
+        foreach ($folders === false ? [] : $folders as $folder) {
+            if (! in_array(basename($folder), $known, true)) {
+                $unclassified[] = basename(dirname($folder)).'/'.basename($folder);
+            }
+        }
+
+        sort($unclassified);
+
+        return $unclassified;
+    }
 
     /**
      * @return list<string>

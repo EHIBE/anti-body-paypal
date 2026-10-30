@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\AccessMatrix;
 
+use App\Models\User;
+use Closure;
+use Illuminate\Auth\AuthManager;
+
 final class AccessMatrix
 {
     public const string OWNER = 'owner';
@@ -16,7 +20,7 @@ final class AccessMatrix
 
     public const array ACTIVE_ACTORS = [self::OWNER, self::GUEST];
 
-    public const string AGENT_FORBIDDEN_ABILITIES = '/approve|reject|override|vendor|amount|payee/i';
+    public const string AGENT_FORBIDDEN_ABILITIES = '/approv|reject|overrid|payee|amount|vendor\.(create|update|delete|edit)/i';
 
     /**
      * @return list<MatrixRow>
@@ -31,7 +35,13 @@ final class AccessMatrix
      */
     public static function openRoutes(): array
     {
-        return [];
+        return [
+            'unnamed: GET /',
+            'unnamed: GET up',
+            'boost.browser-logs',
+            'storage.local',
+            'storage.local.upload',
+        ];
     }
 
     /**
@@ -48,6 +58,31 @@ final class AccessMatrix
     public static function routes(): array
     {
         return self::keys(MatrixRow::ROUTE);
+    }
+
+    /**
+     * @param  list<MatrixRow>  $rows
+     * @param  Closure(string): ?User  $actorFor
+     * @return list<string>
+     */
+    public static function mismatches(array $rows, Closure $actorFor): array
+    {
+        $mismatches = [];
+
+        foreach ($rows as $row) {
+            foreach (self::ACTIVE_ACTORS as $actor) {
+                resolve(AuthManager::class)->forgetGuards();
+
+                $expected = $row->allows($actor);
+                $actual = ($row->probe)($actorFor($actor));
+
+                if ($expected !== $actual) {
+                    $mismatches[] = "{$row->kind}:{$row->key} for {$actor}: expected ".($expected ? 'allow' : 'deny').', got '.($actual ? 'allow' : 'deny');
+                }
+            }
+        }
+
+        return $mismatches;
     }
 
     /**

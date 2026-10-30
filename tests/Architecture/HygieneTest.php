@@ -33,7 +33,6 @@ it('reports every planted forbidden call with its line', function (): void {
         'DirtyCode.php line 26 calls the unsafe function unserialize()',
         'DirtyCode.php line 27 uses eval',
         'DirtyCode.php line 28 uses the backtick shell operator',
-        'DirtyCode.php line 28 uses the backtick shell operator',
         'DirtyCode.php line 29 calls the raw query method DB::raw()',
         'DirtyCode.php line 30 calls the raw query method DB::statement()',
         'DirtyCode.php line 31 calls the raw query method whereRaw()',
@@ -42,6 +41,15 @@ it('reports every planted forbidden call with its line', function (): void {
         'DirtyCode.php line 34 calls the raw query method havingRaw()',
         'DirtyCode.php line 35 calls Model::unguard() to disable mass assignment protection',
         'DirtyCode.php line 36 calls Model::unguarded() to disable mass assignment protection',
+        'DirtyCode.php line 37 calls the raw query method orWhereRaw()',
+        'DirtyCode.php line 38 calls the raw query method orHavingRaw()',
+        'DirtyCode.php line 39 calls the raw query method groupByRaw()',
+        'DirtyCode.php line 40 calls the raw query method fromRaw()',
+        'DirtyCode.php line 41 calls the raw query method WHERERAW()',
+        'DirtyCode.php line 42 calls the raw query method ->statement() on a database connection',
+        'DirtyCode.php line 43 calls the raw query method ->unprepared() on a database connection',
+        'DirtyCode.php line 44 calls the raw query method ->raw() on a database connection',
+        'DirtyCode.php line 45 calls the unsafe function getenv()',
     ]);
 });
 

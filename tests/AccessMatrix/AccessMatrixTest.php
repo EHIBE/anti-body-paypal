@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Models\User;
-use Illuminate\Auth\AuthManager;
 use Illuminate\Routing\Route;
 use Tests\AccessMatrix\AccessMatrix;
 use Tests\AccessMatrix\MatrixRow;
@@ -32,19 +31,38 @@ function guestRequestUrl(Route $route): string
 }
 
 it('grants or denies every matrix row exactly as the matrix says for each active actor', function (): void {
-    $checked = 0;
+    expect(AccessMatrix::mismatches(AccessMatrix::rows(), matrixActor(...)))->toBe([]);
+});
 
-    foreach (AccessMatrix::rows() as $row) {
-        foreach (AccessMatrix::ACTIVE_ACTORS as $actor) {
-            resolve(AuthManager::class)->forgetGuards();
+it('probes every matrix row once for each active actor', function (): void {
+    $probed = 0;
 
-            expect(($row->probe)(matrixActor($actor)))->toBe($row->allows($actor), "{$row->key} for {$actor}");
+    AccessMatrix::mismatches(AccessMatrix::rows(), static function (string $actor) use (&$probed): ?User {
+        $probed++;
 
-            $checked++;
-        }
-    }
+        return matrixActor($actor);
+    });
 
-    expect($checked)->toBe(count(AccessMatrix::rows()) * count(AccessMatrix::ACTIVE_ACTORS));
+    expect($probed)->toBe(count(AccessMatrix::rows()) * count(AccessMatrix::ACTIVE_ACTORS));
+});
+
+it('reports a row whose probe grants a guest or denies the owner against the matrix', function (): void {
+    $rows = [
+        MatrixRow::ability('demo.open', [AccessMatrix::OWNER], static fn (?User $actor): bool => true),
+        MatrixRow::ability('demo.locked', [AccessMatrix::OWNER], static fn (?User $actor): bool => false),
+        MatrixRow::route('demo.correct', [AccessMatrix::OWNER], static fn (?User $actor): bool => $actor instanceof User),
+    ];
+
+    expect(AccessMatrix::mismatches($rows, matrixActor(...)))->toBe([
+        'ability:demo.open for guest: expected deny, got allow',
+        'ability:demo.locked for owner: expected allow, got deny',
+    ]);
+});
+
+it('finds no mismatch when every probe agrees with the matrix', function (): void {
+    $rows = [MatrixRow::route('demo.correct', [AccessMatrix::OWNER], static fn (?User $actor): bool => $actor instanceof User)];
+
+    expect(AccessMatrix::mismatches($rows, matrixActor(...)))->toBe([]);
 });
 
 it('never lets a guest through any matrix row', function (): void {

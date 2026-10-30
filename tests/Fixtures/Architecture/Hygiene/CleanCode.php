@@ -17,6 +17,11 @@ final class CleanCode
     {
         $query->where('status', 'open');
         DB::table('invoices')->where('id', 1);
+        DB::connection('other')->table('invoices')->where('id', 1);
+        $query->raw('not a connection');
+        $query->statement('not a connection');
+        $query->unprepared('not a connection');
+        $getenvLikeName = 'getenv';
 
         return $this->exec();
     }

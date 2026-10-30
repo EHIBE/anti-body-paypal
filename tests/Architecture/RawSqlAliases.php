@@ -24,7 +24,7 @@ final class RawSqlAliases
 
     private const string SQL_HINT = '/\b(count|sum|min|max|avg)\s*\(|\bselect\s|\bcase\s+when\b|\bfrom\s/i';
 
-    private const string ALIAS = '/\bas\s+["`]?([A-Za-z_][A-Za-z0-9_]*)["`]?/i';
+    private const string ALIAS = '/\bas\s+`?([A-Za-z_][A-Za-z0-9_]*)`?/i';
 
     /**
      * @param  list<string>  $directories

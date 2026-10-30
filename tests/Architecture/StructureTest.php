@@ -27,6 +27,30 @@ it('keeps every slice enum string-backed', function (): void {
     expect(ClassRules::enums(SliceClasses::enums()))->toBe([]);
 });
 
+it('keeps every enum anywhere in a slice string-backed', function (): void {
+    expect(ClassRules::enums(SliceClasses::everyEnum()))->toBe([]);
+});
+
+it('keeps every class file in a slice loadable under the class its path implies', function (): void {
+    expect(ClassRules::unresolvedFiles(SliceClasses::unresolvedFiles()))->toBe([]);
+});
+
+it('reports a class file whose namespace does not match its path', function (): void {
+    expect(ClassRules::unresolvedFiles(SliceClasses::unresolvedFiles(architectureFixtureRoot(), architectureFixtureNamespace())))->toBe([
+        'Broken/Support/Mismatched.php does not declare the class its path implies',
+    ]);
+});
+
+it('reports a non string-backed enum outside the Enums folder', function (): void {
+    $broken = 'Tests\\Fixtures\\Architecture\\Features\\Broken\\';
+
+    expect(ClassRules::enums(SliceClasses::everyEnum(architectureFixtureRoot(), architectureFixtureNamespace())))->toBe([
+        "{$broken}Enums\\NumberStatus must be a string-backed enum",
+        "{$broken}Enums\\PlainStatus must be a string-backed enum",
+        "{$broken}Support\\IntStatus must be a string-backed enum",
+    ]);
+});
+
 it('keeps every concrete slice class final', function (): void {
     expect(ClassRules::finalClasses(SliceClasses::everySliceClass()))->toBe([]);
 });
@@ -75,9 +99,9 @@ it('reports a concrete class that is not final and skips abstract classes and sl
 
 it('reports code in a horizontal layer folder and allows only the base controller and the user model', function (): void {
     expect(ClassRules::horizontalFolders(__DIR__.'/../Fixtures/Architecture/App'))->toBe([
-        'app/Services must not hold code: LegacyService.php',
+        'app/Services must not hold code: Billing/BillingService.php, LegacyService.php',
         'app/Actions must not hold code: PayAction.php',
-        'app/Http/Controllers may only hold Controller.php: InvoiceController.php',
+        'app/Http/Controllers may only hold Controller.php: Api/ApiController.php, InvoiceController.php',
         'app/Models may only hold User.php: Invoice.php',
     ]);
 });
